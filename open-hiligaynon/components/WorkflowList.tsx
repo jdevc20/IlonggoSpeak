@@ -12,6 +12,7 @@ export function WorkflowList({
   statuses: string[];
   emptyMessage: string;
 }) {
+  const statusKey = statuses.join("|");
   const [items, setItems] = useState<Sentence[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +23,7 @@ export function WorkflowList({
         setLoading(true);
         setError(null);
         const responses = await Promise.all(
-          statuses.map((status) =>
+          statusKey.split("|").filter(Boolean).map((status) =>
             SentenceService.list({ status, page: 1, limit: 100 })
           )
         );
@@ -41,7 +42,7 @@ export function WorkflowList({
     };
 
     void load();
-  }, [statuses.join("|")]);
+  }, [statusKey]);
 
   if (loading) {
     return <div className="py-12 text-center text-sm text-zinc-500">Loading records…</div>;
