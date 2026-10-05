@@ -12,6 +12,10 @@ import {
 
 const parseInput = (body: any, partial = false) => {
   const category = body.category === undefined ? undefined : String(body.category);
+  if (!partial && category === undefined) {
+    return { error: "category is required." };
+  }
+
   if (category !== undefined && !isMaintenanceCategory(category)) {
     return { error: `category must be one of: ${MAINTENANCE_CATEGORIES.join(", ")}` };
   }
