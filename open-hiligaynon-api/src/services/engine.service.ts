@@ -227,6 +227,7 @@ export interface GenerateDatasetInput {
   trainPercent: number;
   validationPercent: number;
   testPercent: number;
+  generatedBy: string;
 }
 
 export const generateDataset = async (input: GenerateDatasetInput) => {
@@ -359,6 +360,7 @@ export const generateDataset = async (input: GenerateDatasetInput) => {
         description: input.description ?? null,
         license: input.license ?? null,
         generationConfig,
+        generatedBy: input.generatedBy,
         generatedAt: new Date(),
       },
     });
@@ -382,7 +384,7 @@ export const generateDataset = async (input: GenerateDatasetInput) => {
       version: dataset.version,
       description: dataset.description,
       license: dataset.license,
-      generatedByIdentityId: dataset.generatedByIdentityId,
+      generatedBy: dataset.generatedBy,
       generatedAt: dataset.generatedAt,
       generationConfig: dataset.generationConfig,
     },
