@@ -346,7 +346,11 @@ export const updateSentence = async (
     where: { id },
     include: {
       sourceText: true,
-      targetText: true,
+      targetText: {
+        include: {
+          annotation: true,
+        },
+      },
     },
   });
 
@@ -385,10 +389,18 @@ export const updateSentence = async (
       data.intent !== undefined ||
       data.isSarcastic !== undefined ||
       data.register !== undefined ||
-      data.domain !== undefined;
+      data.domain !== undefined ||
+      data.unitType !== undefined;
 
     if (hasAnnotationUpdate) {
-      await upsertTargetAnnotation(tx, targetTextId, data);
+      const previousAnnotation = existing.targetText.annotation;
+      await upsertTargetAnnotation(tx, targetTextId, {
+        sentiment: data.sentiment ?? previousAnnotation?.sentiment ?? 1,
+        intent: data.intent !== undefined ? data.intent : previousAnnotation?.intent ?? null,
+        isSarcastic: data.isSarcastic ?? previousAnnotation?.isSarcastic ?? false,
+        register: data.register !== undefined ? data.register : previousAnnotation?.register ?? null,
+        domain: data.domain !== undefined ? data.domain : previousAnnotation?.domain ?? null,
+      });
     }
 
     await tx.translation.update({
