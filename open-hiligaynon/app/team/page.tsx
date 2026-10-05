@@ -1,26 +1,48 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AppNav } from "@/components/AppNav";
+import { Pagination } from "@/components/Pagination";
 import { RoleGate } from "@/components/RoleGate";
 import { api } from "@/lib/api";
 import { roleLabel, type TeamUser } from "@/lib/auth";
+import type { PaginationMeta } from "@/types/pagination";
+
+const PAGE_SIZE = 20;
 
 export default function TeamPage() {
   const [members, setMembers] = useState<TeamUser[]>([]);
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState<PaginationMeta>({
+    total: 0,
+    page: 1,
+    limit: PAGE_SIZE,
+    totalPages: 1,
+    hasPrevious: false,
+    hasNext: false,
+  });
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await api.get("/auth/team", {
+        params: { page, limit: PAGE_SIZE },
+      });
+      setMembers(response.data?.items ?? []);
+      setMeta(response.data?.meta ?? meta);
+    } catch (err: any) {
+      setError(err?.response?.data?.details || "Could not load team configuration.");
+    } finally {
+      setLoading(false);
+    }
+  }, [page]);
+
   useEffect(() => {
-    const load = async () => {
-      try {
-        const response = await api.get("/auth/team");
-        setMembers(response.data?.data ?? []);
-      } catch (err: any) {
-        setError(err?.response?.data?.details || "Could not load team configuration.");
-      }
-    };
     void load();
-  }, []);
+  }, [load]);
 
   return (
     <RoleGate roles={["ADMIN"]}>
@@ -32,30 +54,50 @@ export default function TeamPage() {
           <p className="mt-3 max-w-3xl text-zinc-500">
             Team accounts are static and loaded from TEAM_ACCOUNTS_JSON on the API server. Passwords are never returned to this page.
           </p>
+          <p className="mt-2 text-sm text-zinc-400">
+            {loading ? "Loading team…" : meta.total + " configured account" + (meta.total === 1 ? "" : "s")}
+          </p>
 
           {error && <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>}
 
           <div className="mt-8 overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-            <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
-              {members.map((member) => (
-                <div key={member.id} className="grid gap-2 p-5 sm:grid-cols-[1fr_1fr_180px]">
-                  <div>
-                    <p className="font-bold">{member.name}</p>
-                    <p className="text-xs text-zinc-400">{member.id}</p>
+            {loading ? (
+              <div className="p-10 text-center text-sm text-zinc-500">Loading team accounts…</div>
+            ) : members.length === 0 ? (
+              <div className="p-10 text-center text-sm text-zinc-500">No team accounts on this page.</div>
+            ) : (
+              <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                {members.map((member) => (
+                  <div key={member.id} className="grid gap-2 p-5 sm:grid-cols-[1fr_1fr_180px]">
+                    <div>
+                      <p className="font-bold">{member.name}</p>
+                      <p className="text-xs text-zinc-400">{member.id}</p>
+                    </div>
+                    <div>
+                      <p className="font-medium">@{member.username}</p>
+                      <p className="text-xs text-zinc-400">Static environment account</p>
+                    </div>
+                    <div className="sm:text-right">
+                      <span className="inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
+                        {roleLabel(member.role)}
+                      </span>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium">@{member.username}</p>
-                    <p className="text-xs text-zinc-400">Static environment account</p>
-                  </div>
-                  <div className="sm:text-right">
-                    <span className="inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
-                      {roleLabel(member.role)}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
+
+          {!error && meta.total > 0 && (
+            <div className="mt-5">
+              <Pagination
+                page={page}
+                totalPages={meta.totalPages}
+                onPageChange={setPage}
+                disabled={loading}
+              />
+            </div>
+          )}
         </main>
       </div>
     </RoleGate>
