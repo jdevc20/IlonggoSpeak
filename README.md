@@ -1,15 +1,68 @@
 # Ilonggo Speak
 
-Ilonggo Speak is an open-source Hiligaynon language-data platform for collecting translations and building reusable linguistic datasets. The project is designed for four related workloads:
+Ilonggo Speak is a **team-only Hiligaynon language engineering workspace** for building a controlled English ↔ Hiligaynon corpus, reviewing linguistic data, generating versioned datasets, and preparing translation-model workflows.
 
-- English ↔ Hiligaynon translation data
-- grammar and token-level linguistic analysis
-- dictionary / lexeme lookup
-- machine-learning dataset preparation and export
+The application is designed around three internal roles:
 
-The web application still presents a simple sentence-pair workflow, while the backend stores the corpus in a normalized language-data model.
+| Role | Responsibility |
+|---|---|
+| Contributor | Create translations and edit their own pending records |
+| Reviewer | Review pending translations, approve or reject records |
+| Admin / Language Lead | Final verification, deletion, dataset generation, team administration, model training |
 
----
+There is no public registration. Team accounts are configured statically in the API environment.
+
+## Workspace
+
+The frontend is organized into:
+
+- Dashboard
+- Corpus
+- Dictionary
+- Review Queue
+- Verified Data
+- Datasets
+- Model Training
+- Model Evaluation
+- Model Versions
+- Team
+- Settings
+
+## Review workflow
+
+```text
+Contributor
+    |
+    v
+ pending
+    |
+    v
+Reviewer
+  |     \
+  v      v
+approved rejected
+  |
+  v
+Language Lead
+  |
+  v
+verified
+  |
+  v
+Dataset generation
+```
+
+Only `verified` translations are eligible for generated training datasets.
+
+Records retain internal team audit fields:
+
+- `createdBy`
+- `reviewedBy`
+- `reviewedAt`
+- `verifiedBy`
+- `verifiedAt`
+
+Editing an approved or verified record as the Language Lead resets its review state to `pending`.
 
 ## Architecture
 
@@ -22,13 +75,17 @@ IlonggoSpeak/
 │   │   ├── seed.ts
 │   │   └── migrations/
 │   └── src/
+│       ├── auth/
 │       ├── controllers/
+│       ├── middleware/
 │       ├── routes/
 │       ├── services/
 │       ├── lib/
 │       └── utils/
 └── Postman/
 ```
+
+The directory names are retained for deployment compatibility; the product name is **Ilonggo Speak**.
 
 ### Stack
 
@@ -39,214 +96,159 @@ IlonggoSpeak/
 | ORM | Prisma |
 | Database | PostgreSQL |
 | HTTP client | Axios |
+| Team sessions | Server-signed HMAC token |
 
----
+## Static team authentication
 
-## Linguistic Data Model
+Accounts are read from server environment variables. Credentials are never stored in the frontend and must never use a `NEXT_PUBLIC_*` variable.
 
-The engine no longer treats an English/Hiligaynon pair as one flat database row.
+Copy:
 
-### Corpus backbone
+```bash
+open-hiligaynon-api/.env.example -> open-hiligaynon-api/.env
+```
+
+Configure:
+
+```env
+DATABASE_URL=postgresql://user:password@localhost:5432/ilonggo_speak
+
+CORS_ORIGINS=http://localhost:3000
+
+TEAM_AUTH_SECRET=replace-with-a-random-secret-at-least-32-characters-long
+TEAM_SESSION_TTL_HOURS=12
+
+TEAM_ACCOUNTS_JSON=[{"id":"contributor-1","name":"Contributor One","username":"contributor","password":"change-me","role":"CONTRIBUTOR"},{"id":"reviewer-1","name":"Reviewer One","username":"reviewer","password":"change-me","role":"REVIEWER"},{"id":"language-lead-1","name":"Language Lead","username":"admin","password":"change-me","role":"ADMIN"}]
+```
+
+Use deployment secret/environment controls for real passwords and `TEAM_AUTH_SECRET`. Do not commit production credentials.
+
+### Authentication API
+
+```http
+POST /api/auth/login
+GET  /api/auth/me
+GET  /api/auth/team
+```
+
+`GET /api/auth/team` is restricted to the Language Lead and returns sanitized account information without passwords.
+
+Protected requests use:
+
+```http
+Authorization: Bearer <team-session-token>
+```
+
+## Corpus API
+
+Base path: `/api/sentences`.
+
+| Method | Path | Access |
+|---|---|---|
+| GET | `/api/sentences` | Team |
+| POST | `/api/sentences` | Team |
+| GET | `/api/sentences/:id` | Team |
+| PATCH | `/api/sentences/:id` | Role/ownership rules |
+| PATCH | `/api/sentences/:id/status` | Reviewer / Language Lead |
+| DELETE | `/api/sentences/:id` | Language Lead |
+| POST | `/api/sentences/bulk-delete` | Language Lead |
+
+Status transitions:
+
+- `pending -> approved`: Reviewer or Language Lead
+- `pending -> rejected`: Reviewer or Language Lead
+- `approved -> verified`: Language Lead only
+- `approved -> rejected`: Reviewer or Language Lead
+
+## Linguistic data model
+
+The corpus uses normalized language entities instead of storing each translation as a single flat row.
 
 ```text
 Language
-   │
+   |
    └── TextUnit
           ├── LinguisticAnnotation
           ├── TokenAnnotation ──> Lexeme ──> LexemeSense
           ├── GrammarAnnotation
           ├── TextSource ──> SourceRecord
-          │
+          |
           ├── source of ──> Translation
           └── target of ──> Translation
-                            ├── TranslationVote
                             ├── TranslationSource
                             └── DatasetItem ──> Dataset
 ```
 
-### Core models
+### Main models
 
-**Language** stores a reusable language identity such as `en` or `hil`.
+**TextUnit** stores language text independently from translation relationships.
 
-**TextUnit** stores one piece of language data independently from its translation. A unit may be a word, phrase, sentence, or other future unit type. The original text and a normalized search/deduplication form are both retained.
+**Translation** connects source and target text and stores workflow state, confidence, notes, team audit information, provenance, and dataset membership.
 
-**Translation** links a source `TextUnit` to a target `TextUnit`. Verification status, translation type, confidence, notes, votes, provenance, and dataset membership live on the translation relationship.
+**LinguisticAnnotation** stores text-level labels such as sentiment, intent, register, domain, and extensible metadata.
 
-**LinguisticAnnotation** stores text-level NLP labels such as sentiment, intent, sarcasm, register, domain, and extensible JSON metadata.
+**TokenAnnotation** stores ordered token-level annotations, lexeme links, morphology, dependency metadata, and contextual notes.
 
-**TokenAnnotation** stores ordered tokens and can link each occurrence to a reusable dictionary `Lexeme`. It also supports POS, morphology, dependency information, slang flags, offsets, and contextual notes.
+**Lexeme / LexemeSense / LexemeTranslation** provide the reusable dictionary layer.
 
-**Lexeme / LexemeSense / LexemeTranslation** form the dictionary layer. A lexeme represents a reusable lemma, senses store definitions/glosses, and lexeme translations connect dictionary entries across languages.
+**GrammarAnnotation** stores grammar structures for text or token ranges.
 
-**GrammarAnnotation** stores grammar structures at the text level or over a token span. The category/label/value plus JSON features allow the grammar model to grow without redesigning the database for every new annotation type.
+**SourceRecord** tracks controlled source/provenance information.
 
-**SourceRecord** and its link tables preserve provenance independently from the text itself. This is important before using community or reference material in a training corpus.
+**Dataset / DatasetItem** provide immutable dataset versions and explicit train / validation / test membership.
 
-**Dataset / DatasetItem** explicitly define ML datasets and their `train`, `validation`, `test`, or custom splits.
+## Engine API
 
----
-
-## Compatibility Sentence API
-
-The existing frontend can continue using the sentence endpoints. The API maps normalized `Translation + TextUnit` records back to the familiar response shape.
-
-Base path: `/api/sentences`
-
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/api/sentences` | List English → Hiligaynon translations |
-| `POST` | `/api/sentences` | Create a translation pair |
-| `GET` | `/api/sentences/:id` | Get one translation with token/grammar metadata |
-| `PATCH` | `/api/sentences/:id` | Update translation content |
-| `PATCH` | `/api/sentences/:id/status` | Moderate status: Pending → Approved → Verified |
-| `DELETE` | `/api/sentences/:id` | Delete a translation |
-| `POST` | `/api/engine/datasets/generate` | Generate a versioned dataset from Verified records |
-| `POST` | `/api/sentences/bulk-delete` | Delete multiple translations |
-| `POST` | `/api/sentences/vote` | Upvote, downvote, switch, or remove a vote |
-
-Supported list filters include `page`, `limit`, `search`, `sentiment`, `isSarcastic`, and `status`.
-
-### Open access and moderation
-
-Ilonggo Speak does not require authentication. The web app and API are intentionally open-access: users can browse, contribute, edit, vote, delete, generate datasets, and move records through the moderation workflow without signing in.
-
-The existing review states are preserved as a lightweight data-quality workflow:
-
-- New contributions are stored as `pending`.
-- A `pending` contribution can be moved to `approved`.
-- An `approved` contribution can be moved to `verified`.
-- Editing an approved or verified record resets it to `pending` so changed content can be reviewed again.
-- Dataset generation continues to use only `verified` translations.
-
-Legacy identity/audit columns may remain nullable in the database for migration compatibility, but they are not populated by the application and no Hilitech/JWT authentication is used.
-
-The old HTTP migration endpoint was removed. Production migrations run through the deployment process instead of being triggerable over a public API.
-
----
-
-## Linguistic Engine API
-
-Base path: `/api/engine`
-
-### Dictionary
+Base path: `/api/engine`.
 
 ```http
 GET /api/engine/dictionary?q=gid&language=hil
-```
-
-Returns lexemes, senses, and linked cross-language lexeme translations.
-
-### Text analysis
-
-Each sentence response includes `sourceTextId` and `targetTextId`. Use a text-unit ID to inspect the normalized linguistic representation:
-
-```http
 GET /api/engine/text-units/:id/analysis
+GET /api/engine/datasets/:id/export
+POST /api/engine/datasets/generate
 ```
 
-The response may contain:
+Dictionary and analysis require a signed-in team account.
 
-- language metadata
-- semantic annotation
-- ordered tokens
-- linked dictionary lexemes and senses
-- POS and morphological features
-- dependency metadata
-- grammar annotations
-- provenance
-- translations that use the text unit
+Dataset export requires Reviewer or Language Lead access.
 
-### Training dataset export
+Dataset generation is restricted to the Language Lead and always selects only `verified` translations.
 
-```http
-GET /api/engine/datasets/sample-dataset-v1/export
-GET /api/engine/datasets/sample-dataset-v1/export?split=train
+Generated datasets record the Language Lead username in `generatedBy`.
+
+## Dataset workflow
+
+Dataset versions should be immutable once used for model training.
+
+Example:
+
+```text
+Verified corpus
+      |
+      v
+hil-general-v1
+      |
+      ├── train
+      ├── validation
+      └── test
+      |
+      v
+Model training run
 ```
 
-The export includes source/target language and text, annotations, target tokens, grammar metadata, translation metadata, dataset labels, weights, and provenance.
+When corpus data changes, create a new dataset version instead of mutating a version already used for training.
 
----
+## Model workspaces
 
-## Sample Data
+The UI now separates:
 
-A structured development seed is included.
+- **Model Training** — Language Lead only
+- **Model Evaluation** — Reviewer and Language Lead
+- **Model Versions** — Reviewer and Language Lead
 
-```bash
-cd open-hiligaynon-api
-npm run db:seed
-```
+These sections establish the product workflow and access boundaries. A Python ML/training service can be integrated later without coupling training execution to the Node corpus API.
 
-The sample seed creates:
-
-- English and Hiligaynon language records
-- 10 English → Hiligaynon translation pairs
-- text-level sentiment, intent, and domain labels
-- reusable Hiligaynon lexemes and senses
-- token annotations linked to matching lexemes
-- sample grammar annotations
-- a provenance record
-- a sample ML dataset with train / validation / test splits
-
-Example translation:
-
-```json
-{
-  "english": "Where are you going?",
-  "hiligaynon": "Diin ka makadto?",
-  "sentiment": 1,
-  "intent": "location_question",
-  "domain": "daily_life"
-}
-```
-
-The underlying representation separates the two texts and can annotate the Hiligaynon target as:
-
-```json
-{
-  "text": "Diin ka makadto?",
-  "language": "hil",
-  "tokens": [
-    { "text": "Diin", "lemma": "diin", "pos": "interrogative" },
-    { "text": "ka" },
-    { "text": "makadto", "lemma": "makadto", "pos": "verb" }
-  ],
-  "grammar": [
-    {
-      "category": "sentence_type",
-      "label": "interrogative",
-      "value": "location_question"
-    }
-  ]
-}
-```
-
----
-
-## Database Migration
-
-The linguistic-engine migration is intentionally non-destructive.
-
-It:
-
-1. creates the normalized language-data tables;
-2. seeds the English and Hiligaynon language identities;
-3. deduplicates reusable English/Hiligaynon text units;
-4. preserves existing sentence IDs as translation IDs;
-5. migrates sentiment, intent, sarcasm, tokens, roots, votes, and idioms;
-6. promotes legacy token roots into dictionary lexemes; and
-7. leaves the legacy `Sentence`, `Token`, `Idiom`, and `Vote` tables in place as a rollback safety net.
-
-Once production data has been validated against the new model, a later cleanup migration can remove the legacy tables.
-
----
-
-## Local Development
-
-### API prerequisites
-
-- Node.js 22+
-- PostgreSQL
-- `DATABASE_URL` in `open-hiligaynon-api/.env`
+## Local development
 
 ### API
 
@@ -260,45 +262,37 @@ npm run dev
 
 ### Frontend
 
-Copy `open-hiligaynon/.env.example` to `.env.local` and set the API base URL if needed.
-
 ```bash
 cd open-hiligaynon
+cp .env.example .env.local
 npm install
 npm run dev
 ```
 
+Frontend environment:
 
-### Production database deployment
+```env
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api
+```
 
-Normal deployment:
+Adjust the URL to match the API port used locally.
+
+## Production migration
 
 ```bash
 npm run db:deploy
 ```
 
-Forced repair (for schema drift or a migration recorded in the wrong state):
+For the existing schema repair workflow:
 
 ```bash
 npm run db:force-migrate
 ```
 
-Production startup now performs the same idempotent linguistic-schema repair before accepting HTTP traffic, reconciles the repaired migration records, and then runs `prisma migrate deploy` for any remaining migrations. This specifically prevents the API from starting while `Translation`, `TextUnit`, or `Language` are missing.
+## Training-data rule
 
----
-
-## Training-data guidance
-
-A row being present in the corpus does not automatically mean it should be used for training. Prefer dataset items whose translation has been reviewed and whose source/provenance and usage rights are known. Keep train/validation/test membership explicit through `DatasetItem` instead of deriving splits ad hoc during export.
-
----
-
-## Contributing
-
-Useful contributions include translation review, dictionary entries, grammar annotations, source/provenance cleanup, dialect/register notes, and improvements to the API or UI.
-
----
+A translation should not enter model training merely because it exists in the corpus. Use only Language Lead-verified records with known provenance and explicit dataset membership.
 
 ## License
 
-Project source code is licensed under the [MIT License](LICENSE). Dataset/source licensing should be tracked separately in `SourceRecord` and `Dataset` because contributed linguistic material may have different usage rights.
+Project source code is licensed under the [MIT License](LICENSE). Dataset/source rights should continue to be tracked independently through source and dataset metadata.
