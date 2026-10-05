@@ -2,27 +2,38 @@
 
 import { FormEvent, useState } from "react";
 import { AppNav } from "@/components/AppNav";
+import { Pagination } from "@/components/Pagination";
 import { EngineService } from "@/services/engineService";
 import type { DictionaryLexeme } from "@/types/engine";
+import type { PaginationMeta } from "@/types/pagination";
+
+const PAGE_SIZE = 20;
 
 export default function DictionaryPage() {
   const [query, setQuery] = useState("");
+  const [activeQuery, setActiveQuery] = useState("");
   const [items, setItems] = useState<DictionaryLexeme[]>([]);
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState<PaginationMeta>({
+    total: 0,
+    page: 1,
+    limit: PAGE_SIZE,
+    totalPages: 1,
+    hasPrevious: false,
+    hasNext: false,
+  });
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const search = async (event?: FormEvent) => {
-    event?.preventDefault();
-
-    const value = query.trim();
-    if (!value) return;
-
+  const runSearch = async (value: string, nextPage: number) => {
     try {
       setLoading(true);
       setError(null);
-      const response = await EngineService.dictionary(value, "hil");
+      const response = await EngineService.dictionary(value, "hil", nextPage, PAGE_SIZE);
       setItems(response.items);
+      setMeta(response.meta);
+      setPage(nextPage);
       setHasSearched(true);
     } catch (err) {
       console.error("Dictionary lookup failed:", err);
@@ -34,28 +45,29 @@ export default function DictionaryPage() {
     }
   };
 
+  const search = async (event?: FormEvent) => {
+    event?.preventDefault();
+    const value = query.trim();
+    if (!value) return;
+    setActiveQuery(value);
+    await runSearch(value, 1);
+  };
+
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-100">
       <AppNav />
 
       <main className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6">
         <div className="max-w-2xl">
-          <p className="text-sm font-semibold text-blue-600 dark:text-blue-400">
-            Lexeme dictionary
-          </p>
-          <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">
-            Search Hiligaynon words
-          </h1>
+          <p className="text-sm font-semibold text-blue-600 dark:text-blue-400">Lexeme dictionary</p>
+          <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Search Hiligaynon words</h1>
           <p className="mt-3 text-zinc-600 dark:text-zinc-400">
-            Search reusable dictionary entries backed by lexemes, senses, parts of
-            speech, usage notes, and cross-language links.
+            Search reusable dictionary entries backed by lexemes, senses, parts of speech, usage notes, and cross-language links.
           </p>
         </div>
 
         <form onSubmit={search} className="mt-8 flex gap-3">
-          <label htmlFor="dictionary-query" className="sr-only">
-            Hiligaynon word
-          </label>
+          <label htmlFor="dictionary-query" className="sr-only">Hiligaynon word</label>
           <input
             id="dictionary-query"
             value={query}
@@ -71,6 +83,12 @@ export default function DictionaryPage() {
             {loading ? "Searching…" : "Search"}
           </button>
         </form>
+
+        {hasSearched && !error && (
+          <p className="mt-4 text-sm text-zinc-500">
+            {meta.total} matching entr{meta.total === 1 ? "y" : "ies"}
+          </p>
+        )}
 
         {error && (
           <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
@@ -108,53 +126,31 @@ export default function DictionaryPage() {
               <div className="mt-5 space-y-3">
                 {entry.senses.length > 0 ? (
                   entry.senses.map((sense, index) => (
-                    <div
-                      key={sense.id}
-                      className="rounded-xl bg-zinc-50 p-4 dark:bg-zinc-950"
-                    >
+                    <div key={sense.id} className="rounded-xl bg-zinc-50 p-4 dark:bg-zinc-950">
                       <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
                         Sense {index + 1}
                       </p>
                       <p className="mt-1 font-medium">{sense.definition}</p>
-                      {sense.gloss && (
-                        <p className="mt-2 text-sm text-blue-700 dark:text-blue-400">
-                          Gloss: {sense.gloss}
-                        </p>
-                      )}
-                      {sense.usageNote && (
-                        <p className="mt-2 text-sm text-zinc-500">
-                          {sense.usageNote}
-                        </p>
-                      )}
+                      {sense.gloss && <p className="mt-2 text-sm text-blue-700 dark:text-blue-400">Gloss: {sense.gloss}</p>}
+                      {sense.usageNote && <p className="mt-2 text-sm text-zinc-500">{sense.usageNote}</p>}
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-zinc-500">
-                    This lexeme does not have a definition yet.
-                  </p>
+                  <p className="text-sm text-zinc-500">This lexeme does not have a definition yet.</p>
                 )}
               </div>
 
-              {(entry.outgoingTranslations.length > 0 ||
-                entry.incomingTranslations.length > 0) && (
+              {(entry.outgoingTranslations.length > 0 || entry.incomingTranslations.length > 0) && (
                 <div className="mt-5 border-t border-zinc-100 pt-4 dark:border-zinc-800">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-                    Linked translations
-                  </p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Linked translations</p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {entry.outgoingTranslations.map((link) => (
-                      <span
-                        key={link.id}
-                        className="rounded-lg border border-zinc-200 px-2.5 py-1 text-sm dark:border-zinc-700"
-                      >
+                      <span key={link.id} className="rounded-lg border border-zinc-200 px-2.5 py-1 text-sm dark:border-zinc-700">
                         {link.targetLexeme.lemma} · {link.targetLexeme.language.code}
                       </span>
                     ))}
                     {entry.incomingTranslations.map((link) => (
-                      <span
-                        key={link.id}
-                        className="rounded-lg border border-zinc-200 px-2.5 py-1 text-sm dark:border-zinc-700"
-                      >
+                      <span key={link.id} className="rounded-lg border border-zinc-200 px-2.5 py-1 text-sm dark:border-zinc-700">
                         {link.sourceLexeme.lemma} · {link.sourceLexeme.language.code}
                       </span>
                     ))}
@@ -167,19 +163,27 @@ export default function DictionaryPage() {
           {hasSearched && !loading && !error && items.length === 0 && (
             <div className="rounded-2xl border border-dashed border-zinc-300 p-10 text-center dark:border-zinc-700">
               <p className="font-semibold">No dictionary entry found.</p>
-              <p className="mt-1 text-sm text-zinc-500">
-                Try another spelling or contribute lexeme data through the engine.
-              </p>
+              <p className="mt-1 text-sm text-zinc-500">Try another spelling or contribute lexeme data through the engine.</p>
             </div>
           )}
 
           {!hasSearched && (
             <div className="rounded-2xl border border-zinc-200 bg-white p-6 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
-              Dictionary results come from the normalized <strong>Lexeme</strong> and
-              <strong> LexemeSense</strong> tables, not from scanning sentence text.
+              Dictionary results come from the normalized <strong>Lexeme</strong> and <strong> LexemeSense</strong> tables, not from scanning sentence text.
             </div>
           )}
         </div>
+
+        {hasSearched && !error && meta.total > 0 && (
+          <div className="mt-6">
+            <Pagination
+              page={page}
+              totalPages={meta.totalPages}
+              onPageChange={(nextPage) => void runSearch(activeQuery, nextPage)}
+              disabled={loading}
+            />
+          </div>
+        )}
       </main>
     </div>
   );
