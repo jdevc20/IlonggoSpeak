@@ -1,8 +1,31 @@
 import { Request, Response } from "express";
 import type { TeamRequest } from "../middleware/team-auth.middleware.js";
 import * as sentenceService from "../services/sentence.service.js";
+import { assertActiveMaintenanceValue } from "../services/maintenance.service.js";
 
 const ALLOWED_STATUSES = new Set(["pending", "verified", "approved", "rejected"]);
+const validateMaintenanceSelections = async (input: {
+  sentiment?: number;
+  intent?: string | null;
+  isSarcastic?: boolean;
+  translationType?: string | null;
+  register?: string | null;
+  domain?: string | null;
+  languagePair?: string | null;
+  unitType?: string | null;
+}) => {
+  await Promise.all([
+    assertActiveMaintenanceValue("sentiment", input.sentiment, "sentiment"),
+    assertActiveMaintenanceValue("intent", input.intent, "intent"),
+    assertActiveMaintenanceValue("sarcasm", input.isSarcastic, "isSarcastic"),
+    assertActiveMaintenanceValue("translation_type", input.translationType, "translationType"),
+    assertActiveMaintenanceValue("register", input.register, "register"),
+    assertActiveMaintenanceValue("domain", input.domain, "domain"),
+    assertActiveMaintenanceValue("language_pair", input.languagePair, "languagePair"),
+    assertActiveMaintenanceValue("unit_type", input.unitType, "unitType"),
+  ]);
+};
+
 
 const parseSentiment = (value: unknown) => {
   if (value === undefined || value === null || value === "") return undefined;
@@ -122,6 +145,8 @@ export const createSentence = async (req: Request, res: Response) => {
       notes,
       register,
       domain,
+      languagePair,
+      unitType,
     } = req.body;
 
     const sentiment = parseSentiment(req.body.sentiment);
@@ -145,6 +170,17 @@ export const createSentence = async (req: Request, res: Response) => {
       });
     }
 
+    await validateMaintenanceSelections({
+      sentiment,
+      intent,
+      isSarcastic,
+      translationType: translationType ?? "natural",
+      register,
+      domain,
+      languagePair: languagePair ?? "en-hil",
+      unitType: unitType ?? "sentence",
+    });
+
     const data = await sentenceService.createSentence({
       english: english.trim(),
       hiligaynon: hiligaynon.trim(),
@@ -157,11 +193,20 @@ export const createSentence = async (req: Request, res: Response) => {
       notes,
       register,
       domain,
+      languagePair: languagePair ?? "en-hil",
+      unitType: unitType ?? "sentence",
     });
 
     return res.status(201).json({ data });
   } catch (error: any) {
     console.error("[createSentence Error]:", error);
+
+    if (error?.message?.startsWith("Invalid ")) {
+      return res.status(400).json({
+        error: "Validation failed",
+        details: error.message,
+      });
+    }
 
     if (error?.code === "P2002") {
       return res.status(409).json({
@@ -246,6 +291,25 @@ export const updateSentence = async (req: Request, res: Response) => {
       });
     }
 
+    await validateMaintenanceSelections({
+      ...(sentiment !== undefined ? { sentiment } : {}),
+      ...(req.body.intent !== undefined ? { intent: req.body.intent } : {}),
+      ...(req.body.isSarcastic !== undefined
+        ? { isSarcastic: req.body.isSarcastic === true || req.body.isSarcastic === "true" }
+        : {}),
+      ...(req.body.translationType !== undefined
+        ? { translationType: String(req.body.translationType) }
+        : {}),
+      ...(req.body.register !== undefined ? { register: req.body.register } : {}),
+      ...(req.body.domain !== undefined ? { domain: req.body.domain } : {}),
+      ...(req.body.languagePair !== undefined
+        ? { languagePair: String(req.body.languagePair) }
+        : {}),
+      ...(req.body.unitType !== undefined
+        ? { unitType: String(req.body.unitType) }
+        : {}),
+    });
+
     const data = await sentenceService.updateSentence(id, {
       ...(req.body.english !== undefined ? { english: String(req.body.english).trim() } : {}),
       ...(req.body.hiligaynon !== undefined ? { hiligaynon: String(req.body.hiligaynon).trim() } : {}),
@@ -263,6 +327,12 @@ export const updateSentence = async (req: Request, res: Response) => {
       ...(req.body.notes !== undefined ? { notes: req.body.notes } : {}),
       ...(req.body.register !== undefined ? { register: req.body.register } : {}),
       ...(req.body.domain !== undefined ? { domain: req.body.domain } : {}),
+      ...(req.body.languagePair !== undefined
+        ? { languagePair: String(req.body.languagePair) }
+        : {}),
+      ...(req.body.unitType !== undefined
+        ? { unitType: String(req.body.unitType) }
+        : {}),
     }, actor.role === "ADMIN" && existing.status !== "pending");
 
     if (!data) {
@@ -275,6 +345,13 @@ export const updateSentence = async (req: Request, res: Response) => {
     return res.status(200).json({ data });
   } catch (error: any) {
     console.error("[updateSentence Error]:", error);
+
+    if (error?.message?.startsWith("Invalid ")) {
+      return res.status(400).json({
+        error: "Validation failed",
+        details: error.message,
+      });
+    }
 
     if (error?.code === "P2002") {
       return res.status(409).json({
