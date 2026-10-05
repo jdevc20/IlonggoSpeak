@@ -42,7 +42,7 @@ export default function CreateSentencePage() {
           fallback;
 
         setSentiment(Number(defaultValue("sentiment", "1")));
-        setIntent(defaultValue("intent", "greeting"));
+        setIntent(defaultValue("intent", "statement"));
         setDomain(defaultValue("domain", "daily_life"));
         setRegister(defaultValue("register", "neutral"));
         setTranslationType(defaultValue("translation_type", "natural"));
