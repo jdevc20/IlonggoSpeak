@@ -17,6 +17,6 @@ router.use(requireTeamAuth);
 router.get("/dictionary", dictionaryLookup);
 router.get("/text-units/:id/analysis", textAnalysis);
 router.post("/datasets/generate", requireTeamRole("ADMIN"), generateDataset);
-router.get("/datasets/:id/export", datasetExport);
+router.get("/datasets/:id/export", requireTeamRole("REVIEWER", "ADMIN"), datasetExport);
 
 export default router;
