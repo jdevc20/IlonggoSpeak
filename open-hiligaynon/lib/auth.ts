@@ -18,8 +18,9 @@ const STORAGE_KEY = "ilonggo-speak.team-session";
 export const TEAM_SESSION_EVENT = "ilonggo-speak:team-session";
 
 const baseURL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  "https://ilonggospeak.onrender.com/api";
+  process.env.NODE_ENV === "production"
+    ? "https://ilonggospeak.onrender.com/api"
+    : process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000/api";
 
 const authApi = axios.create({
   baseURL,
