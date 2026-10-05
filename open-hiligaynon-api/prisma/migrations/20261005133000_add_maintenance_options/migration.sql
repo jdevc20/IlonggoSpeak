@@ -22,7 +22,7 @@ CREATE INDEX "MaintenanceOption_category_active_sortOrder_idx"
 INSERT INTO "MaintenanceOption"
 ("id","category","code","label","value","description","sortOrder","active","isDefault")
 VALUES
-('intent:greeting','intent','greeting','Greeting','greeting','Salutations and opening greetings.',10,true,true),
+('intent:greeting','intent','greeting','Greeting','greeting','Salutations and opening greetings.',10,true,false),
 ('intent:farewell','intent','farewell','Farewell','farewell','Closing or leave-taking expressions.',20,true,false),
 ('intent:gratitude','intent','gratitude','Gratitude','gratitude','Thanks and appreciation.',30,true,false),
 ('intent:apology','intent','apology','Apology','apology','Apologies and expressions of regret.',40,true,false),
