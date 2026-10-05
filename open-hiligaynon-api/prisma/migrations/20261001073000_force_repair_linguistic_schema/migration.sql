@@ -33,8 +33,6 @@ CREATE TABLE IF NOT EXISTS "Translation" (
   "translationType" TEXT NOT NULL DEFAULT 'natural',
   "confidence" DOUBLE PRECISION,
   "notes" TEXT,
-  "upVotes" INTEGER NOT NULL DEFAULT 0,
-  "downVotes" INTEGER NOT NULL DEFAULT 0,
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT "Translation_pkey" PRIMARY KEY ("id")
@@ -127,7 +125,7 @@ CREATE TABLE IF NOT EXISTS "GrammarAnnotation" (
 CREATE TABLE IF NOT EXISTS "SourceRecord" (
   "id" TEXT NOT NULL,
   "title" TEXT NOT NULL,
-  "sourceType" TEXT NOT NULL DEFAULT 'community',
+  "sourceType" TEXT NOT NULL DEFAULT 'team',
   "author" TEXT,
   "url" TEXT,
   "license" TEXT,
@@ -178,15 +176,6 @@ CREATE TABLE IF NOT EXISTS "DatasetItem" (
   CONSTRAINT "DatasetItem_pkey" PRIMARY KEY ("id")
 );
 
-CREATE TABLE IF NOT EXISTS "TranslationVote" (
-  "id" TEXT NOT NULL,
-  "translationId" TEXT NOT NULL,
-  "userId" TEXT,
-  "ipAddress" TEXT NOT NULL,
-  "type" TEXT NOT NULL,
-  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT "TranslationVote_pkey" PRIMARY KEY ("id")
-);
 
 CREATE UNIQUE INDEX IF NOT EXISTS "Language_code_key" ON "Language"("code");
 CREATE UNIQUE INDEX IF NOT EXISTS "TextUnit_languageId_normalizedText_unitType_key" ON "TextUnit"("languageId", "normalizedText", "unitType");
@@ -213,8 +202,6 @@ CREATE INDEX IF NOT EXISTS "TranslationSource_sourceId_idx" ON "TranslationSourc
 CREATE UNIQUE INDEX IF NOT EXISTS "Dataset_name_version_key" ON "Dataset"("name", "version");
 CREATE UNIQUE INDEX IF NOT EXISTS "DatasetItem_datasetId_translationId_key" ON "DatasetItem"("datasetId", "translationId");
 CREATE INDEX IF NOT EXISTS "DatasetItem_datasetId_split_idx" ON "DatasetItem"("datasetId", "split");
-CREATE UNIQUE INDEX IF NOT EXISTS "TranslationVote_translationId_ipAddress_key" ON "TranslationVote"("translationId", "ipAddress");
-CREATE INDEX IF NOT EXISTS "TranslationVote_translationId_idx" ON "TranslationVote"("translationId");
 
 INSERT INTO "Language" ("id", "code", "name", "nativeName", "updatedAt")
 VALUES
@@ -257,7 +244,7 @@ ON CONFLICT DO NOTHING;
 
 INSERT INTO "Translation" (
   "id", "sourceTextId", "targetTextId", "status", "translationType",
-  "upVotes", "downVotes", "createdAt", "updatedAt"
+  "createdAt", "updatedAt"
 )
 SELECT
   s."id",
@@ -265,8 +252,6 @@ SELECT
   tgt."id",
   s."status",
   'natural',
-  s."upVotes",
-  s."downVotes",
   s."createdAt",
   s."updatedAt"
 FROM "Sentence" s
@@ -408,10 +393,6 @@ JOIN "TextUnit" tgt
  AND tgt."unitType" = 'sentence'
 ON CONFLICT DO NOTHING;
 
-INSERT INTO "TranslationVote" ("id", "translationId", "userId", "ipAddress", "type", "createdAt")
-SELECT "id", "sentenceId", "userId", "ipAddress", "type", "createdAt"
-FROM "Vote"
-ON CONFLICT DO NOTHING;
 
 -- Foreign keys are added after backfill so existing data is copied first.
 DO $$
@@ -501,8 +482,4 @@ BEGIN
       FOREIGN KEY ("translationId") REFERENCES "Translation"("id") ON DELETE CASCADE ON UPDATE CASCADE;
   END IF;
 
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'TranslationVote_translationId_fkey') THEN
-    ALTER TABLE "TranslationVote" ADD CONSTRAINT "TranslationVote_translationId_fkey"
-      FOREIGN KEY ("translationId") REFERENCES "Translation"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-  END IF;
 END $$;
