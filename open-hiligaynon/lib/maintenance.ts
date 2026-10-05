@@ -4,11 +4,18 @@ import type {
   MaintenanceOption,
   MaintenanceOptionInput,
 } from "@/types/maintenance";
+import type { PaginationMeta } from "@/types/pagination";
 
 export const getMaintenanceOptions = async (params?: {
   category?: MaintenanceCategory;
   includeInactive?: boolean;
-}): Promise<{ items: MaintenanceOption[]; categories: MaintenanceCategory[] }> => {
+  page?: number;
+  limit?: number;
+}): Promise<{
+  items: MaintenanceOption[];
+  categories: MaintenanceCategory[];
+  meta: PaginationMeta;
+}> => {
   const response = await api.get("/maintenance/options", { params });
   return response.data;
 };
