@@ -67,8 +67,8 @@ export default function DashboardPage() {
             backgroundSize: "cover",
           }}
         >
-          <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/60 to-black/15" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/10" />
+          <div className="absolute inset-0" style={{ background: "linear-gradient(90deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.62) 48%, rgba(0,0,0,0.15) 100%)" }} />
+          <div className="absolute inset-0" style={{ background: "linear-gradient(0deg, rgba(0,0,0,0.6) 0%, transparent 52%, rgba(0,0,0,0.1) 100%)" }} />
 
           <div className="relative flex min-h-[28rem] max-w-3xl flex-col justify-end px-6 py-8 text-white sm:min-h-[34rem] sm:px-10 sm:py-10 lg:min-h-[38rem] lg:px-12">
             <p className="text-xs font-black uppercase tracking-[0.22em] text-amber-300">
@@ -77,7 +77,7 @@ export default function DashboardPage() {
             <h1 className="mt-3 text-4xl font-black tracking-tight sm:text-5xl lg:text-6xl">
               Language lives through culture.
             </h1>
-            <p className="mt-4 max-w-2xl text-sm leading-7 text-white/85 sm:text-base">
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-white/80 sm:text-base">
               Explore the culture around Hiligaynon through heritage architecture,
               colorful festivals, weaving and traditional dress, coastal life, and
               community. Ilonggo Speak keeps that cultural context close while the
