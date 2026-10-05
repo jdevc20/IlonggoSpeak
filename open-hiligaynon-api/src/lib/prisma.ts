@@ -9,7 +9,7 @@ import pg from "pg";
 const execFileAsync = promisify(execFile);
 const projectRoot = fileURLToPath(new URL("../../", import.meta.url));
 const connectionString = process.env.DATABASE_URL;
-const databaseSchema = process.env.DB_SCHEMA?.trim() || "public";
+const databaseSchema = process.env.DB_SCHEMA?.trim() || "ilonggo_speak";
 
 if (!connectionString) {
   throw new Error("DATABASE_URL is not configured");
