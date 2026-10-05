@@ -1,11 +1,13 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AppNav } from "@/components/AppNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { SentenceService } from "@/services/sentenceService";
+import { getMaintenanceOptions, groupMaintenanceOptions } from "@/lib/maintenance";
+import type { MaintenanceOption } from "@/types/maintenance";
 
 export default function CreateSentencePage() {
   const router = useRouter();
@@ -17,11 +19,39 @@ export default function CreateSentencePage() {
   const [domain, setDomain] = useState("");
   const [register, setRegister] = useState("");
   const [translationType, setTranslationType] = useState("natural");
+  const [languagePair, setLanguagePair] = useState("en-hil");
+  const [unitType, setUnitType] = useState("sentence");
   const [confidence, setConfidence] = useState("");
   const [notes, setNotes] = useState("");
   const [isSarcastic, setIsSarcastic] = useState(false);
+  const [maintenance, setMaintenance] = useState<MaintenanceOption[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const grouped = useMemo(() => groupMaintenanceOptions(maintenance), [maintenance]);
+  const options = (category: string) => grouped[category] ?? [];
+
+  useEffect(() => {
+    void getMaintenanceOptions()
+      .then(({ items }) => {
+        setMaintenance(items);
+        const groups = groupMaintenanceOptions(items);
+        const defaultValue = (category: string, fallback: string) =>
+          groups[category]?.find((item) => item.isDefault)?.value ??
+          groups[category]?.[0]?.value ??
+          fallback;
+
+        setSentiment(Number(defaultValue("sentiment", "1")));
+        setIntent(defaultValue("intent", "greeting"));
+        setDomain(defaultValue("domain", "daily_life"));
+        setRegister(defaultValue("register", "neutral"));
+        setTranslationType(defaultValue("translation_type", "natural"));
+        setLanguagePair(defaultValue("language_pair", "en-hil"));
+        setUnitType(defaultValue("unit_type", "sentence"));
+        setIsSarcastic(defaultValue("sarcasm", "false") === "true");
+      })
+      .catch(() => setError("Could not load metadata maintenance values."));
+  }, []);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -37,10 +67,12 @@ export default function CreateSentencePage() {
         english: english.trim(),
         hiligaynon: hiligaynon.trim(),
         sentiment,
-        intent: intent.trim() || null,
-        domain: domain.trim() || null,
-        register: register.trim() || null,
-        translationType: translationType.trim() || "natural",
+        intent: intent || null,
+        domain: domain || null,
+        register: register || null,
+        translationType: translationType || "natural",
+        languagePair,
+        unitType,
         confidence: parsedConfidence,
         notes: notes.trim() || null,
         isSarcastic,
@@ -56,6 +88,11 @@ export default function CreateSentencePage() {
 
   const inputClass =
     "mt-2 w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm outline-none focus:border-blue-500 dark:border-zinc-700 dark:bg-zinc-950";
+
+  const renderOptions = (category: string) =>
+    options(category).map((item) => (
+      <option key={item.id} value={item.value}>{item.label}</option>
+    ));
 
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-100">
@@ -90,29 +127,47 @@ export default function CreateSentencePage() {
           </section>
 
           <section className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-            <h2 className="text-lg font-bold">Linguistic metadata</h2>
+            <div>
+              <h2 className="text-lg font-bold">Linguistic metadata</h2>
+              <p className="mt-1 text-sm text-zinc-500">Values are maintained by the Language Lead and selected from controlled lists.</p>
+            </div>
             <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              <label className="text-sm font-semibold">
-                Sentiment
-                <select value={sentiment} onChange={(e) => setSentiment(Number(e.target.value))} className={inputClass}>
-                  <option value={0}>Negative</option><option value={1}>Neutral</option><option value={2}>Positive</option>
-                </select>
+              <label className="text-sm font-semibold">Intent
+                <select value={intent} onChange={(e) => setIntent(e.target.value)} className={inputClass}>{renderOptions("intent")}</select>
               </label>
-              <label className="text-sm font-semibold">Translation type<input value={translationType} onChange={(e) => setTranslationType(e.target.value)} className={inputClass} /></label>
-              <label className="text-sm font-semibold">Intent<input value={intent} onChange={(e) => setIntent(e.target.value)} className={inputClass} /></label>
-              <label className="text-sm font-semibold">Domain<input value={domain} onChange={(e) => setDomain(e.target.value)} className={inputClass} /></label>
-              <label className="text-sm font-semibold">Register<input value={register} onChange={(e) => setRegister(e.target.value)} className={inputClass} /></label>
-              <label className="text-sm font-semibold">Confidence<input type="number" min="0" max="1" step="0.01" value={confidence} onChange={(e) => setConfidence(e.target.value)} className={inputClass} /></label>
-              <label className="flex items-center gap-3 self-end rounded-xl border border-zinc-200 px-4 py-3 text-sm font-semibold dark:border-zinc-700">
-                <input type="checkbox" checked={isSarcastic} onChange={(e) => setIsSarcastic(e.target.checked)} /> Sarcastic
+              <label className="text-sm font-semibold">Sentiment
+                <select value={sentiment} onChange={(e) => setSentiment(Number(e.target.value))} className={inputClass}>{renderOptions("sentiment")}</select>
+              </label>
+              <label className="text-sm font-semibold">Register
+                <select value={register} onChange={(e) => setRegister(e.target.value)} className={inputClass}>{renderOptions("register")}</select>
+              </label>
+              <label className="text-sm font-semibold">Domain
+                <select value={domain} onChange={(e) => setDomain(e.target.value)} className={inputClass}>{renderOptions("domain")}</select>
+              </label>
+              <label className="text-sm font-semibold">Sarcasm
+                <select value={String(isSarcastic)} onChange={(e) => setIsSarcastic(e.target.value === "true")} className={inputClass}>{renderOptions("sarcasm")}</select>
+              </label>
+              <label className="text-sm font-semibold">Translation type
+                <select value={translationType} onChange={(e) => setTranslationType(e.target.value)} className={inputClass}>{renderOptions("translation_type")}</select>
+              </label>
+              <label className="text-sm font-semibold">Language pair
+                <select value={languagePair} onChange={(e) => setLanguagePair(e.target.value)} className={inputClass}>{renderOptions("language_pair")}</select>
+              </label>
+              <label className="text-sm font-semibold">Unit type
+                <select value={unitType} onChange={(e) => setUnitType(e.target.value)} className={inputClass}>{renderOptions("unit_type")}</select>
+              </label>
+              <label className="text-sm font-semibold">Confidence
+                <input type="number" min="0" max="1" step="0.01" value={confidence} onChange={(e) => setConfidence(e.target.value)} className={inputClass} placeholder="Optional, e.g. 0.98" />
               </label>
             </div>
-            <label className="mt-5 block text-sm font-semibold">Notes<textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className={inputClass} /></label>
+            <label className="mt-5 block text-sm font-semibold">Notes
+              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className={inputClass} />
+            </label>
           </section>
 
           <div className="flex justify-end gap-3">
             <Link href="/sentences" className="inline-flex h-11 items-center rounded-xl border border-zinc-300 bg-white px-5 text-sm font-semibold dark:border-zinc-700 dark:bg-zinc-900">Cancel</Link>
-            <button type="submit" disabled={submitting} className="h-11 rounded-xl bg-blue-600 px-6 text-sm font-semibold text-white disabled:opacity-50">
+            <button type="submit" disabled={submitting || maintenance.length === 0} className="h-11 rounded-xl bg-blue-600 px-6 text-sm font-semibold text-white disabled:opacity-50">
               {submitting ? "Saving…" : "Submit for review"}
             </button>
           </div>
