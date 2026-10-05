@@ -67,6 +67,8 @@ export interface Sentence {
 
   sourceLanguage: string;
   targetLanguage: string;
+  languagePair: string;
+  unitType: string;
   sourceTextId: string;
   targetTextId: string;
 
@@ -89,4 +91,6 @@ export interface TranslationInput {
   notes?: string | null;
   register?: string | null;
   domain?: string | null;
+  languagePair?: string | null;
+  unitType?: string | null;
 }
