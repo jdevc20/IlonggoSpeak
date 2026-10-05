@@ -48,7 +48,7 @@ export default function Home() {
                 Build better Hiligaynon language data.
               </h1>
               <p className="mt-6 max-w-2xl text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-                Open Hiligaynon organizes translations, dictionary entries, token
+                Ilonggo Speak organizes translations, dictionary entries, token
                 annotations, grammar metadata, provenance, and training datasets in
                 one structured engine.
               </p>
