@@ -53,8 +53,7 @@ export interface CreateSentenceInput {
   intent?: string | null;
   isSarcastic?: boolean;
   status?: string;
-  contributorIdentityId?: string | null;
-  contributorType?: "guest" | "registered";
+  createdBy?: string | null;
   translationType?: string;
   confidence?: number | null;
   notes?: string | null;
@@ -74,8 +73,6 @@ const toSentenceDto = (record: SentenceRecord) => {
     normalizedEnglish: record.sourceText.normalizedText,
     normalizedHiligaynon: record.targetText.normalizedText,
     status: record.status,
-    upVotes: record.upVotes,
-    downVotes: record.downVotes,
     sentiment: annotation?.sentiment ?? 1,
     intent: annotation?.intent ?? null,
     isSarcastic: annotation?.isSarcastic ?? false,
@@ -84,11 +81,10 @@ const toSentenceDto = (record: SentenceRecord) => {
     translationType: record.translationType,
     confidence: record.confidence,
     notes: record.notes,
-    contributorIdentityId: record.contributorIdentityId,
-    contributorType: record.contributorType,
-    approvedByIdentityId: record.approvedByIdentityId,
-    approvedAt: record.approvedAt,
-    verifiedByIdentityId: record.verifiedByIdentityId,
+    createdBy: record.createdBy,
+    reviewedBy: record.reviewedBy,
+    reviewedAt: record.reviewedAt,
+    verifiedBy: record.verifiedBy,
     verifiedAt: record.verifiedAt,
     sourceLanguage: record.sourceText.language.code,
     targetLanguage: record.targetText.language.code,
@@ -323,8 +319,7 @@ export const createSentence = async (data: CreateSentenceInput) => {
         sourceTextId: sourceText.id,
         targetTextId: targetText.id,
         status: "pending",
-        contributorIdentityId: data.contributorIdentityId ?? null,
-        contributorType: data.contributorType ?? "guest",
+        createdBy: data.createdBy ?? null,
         translationType: data.translationType ?? "natural",
         confidence: data.confidence ?? null,
         notes: data.notes ?? null,
@@ -383,9 +378,9 @@ export const updateSentence = async (
         ...(resetModeration
           ? {
               status: "pending",
-              approvedByIdentityId: null,
-              approvedAt: null,
-              verifiedByIdentityId: null,
+              reviewedBy: null,
+              reviewedAt: null,
+              verifiedBy: null,
               verifiedAt: null,
             }
           : {}),
@@ -415,99 +410,12 @@ export const deleteSentencesBulk = async (ids: string[]) => {
   });
 };
 
-export interface CastVoteInput {
-  sentenceId: string;
-  ipAddress: string;
-  type: "UP" | "DOWN";
-  userId?: string;
-}
-
-export const castVote = async (data: CastVoteInput) => {
-  const { sentenceId, ipAddress, type, userId } = data;
-
-  const translationExists = await prisma.translation.findUnique({
-    where: { id: sentenceId },
-    select: { id: true },
-  });
-
-  if (!translationExists) return null;
-
-  await prisma.$transaction(async (tx) => {
-    const existingVote = await tx.translationVote.findUnique({
-      where: {
-        translationId_ipAddress: {
-          translationId: sentenceId,
-          ipAddress,
-        },
-      },
-    });
-
-    if (existingVote) {
-      if (existingVote.type === type) {
-        await tx.translationVote.delete({
-          where: { id: existingVote.id },
-        });
-
-        await tx.translation.update({
-          where: { id: sentenceId },
-          data:
-            type === "UP"
-              ? { upVotes: { decrement: 1 } }
-              : { downVotes: { decrement: 1 } },
-        });
-
-        return;
-      }
-
-      await tx.translationVote.update({
-        where: { id: existingVote.id },
-        data: { type },
-      });
-
-      await tx.translation.update({
-        where: { id: sentenceId },
-        data:
-          type === "UP"
-            ? {
-                upVotes: { increment: 1 },
-                downVotes: { decrement: 1 },
-              }
-            : {
-                upVotes: { decrement: 1 },
-                downVotes: { increment: 1 },
-              },
-      });
-
-      return;
-    }
-
-    await tx.translationVote.create({
-      data: {
-        translationId: sentenceId,
-        ipAddress,
-        type,
-        userId,
-      },
-    });
-
-    await tx.translation.update({
-      where: { id: sentenceId },
-      data:
-        type === "UP"
-          ? { upVotes: { increment: 1 } }
-          : { downVotes: { increment: 1 } },
-    });
-  });
-
-  return getSentenceById(sentenceId);
-};
-
-
-export type ModerationTargetStatus = "approved" | "verified";
+export type ModerationTargetStatus = "approved" | "verified" | "rejected";
 
 export const setModerationStatus = async (
   id: string,
-  targetStatus: ModerationTargetStatus
+  targetStatus: ModerationTargetStatus,
+  actorUsername: string
 ) => {
   const now = new Date();
 
@@ -517,18 +425,29 @@ export const setModerationStatus = async (
           where: { id, status: "pending" },
           data: {
             status: "approved",
-            approvedByIdentityId: null,
-            approvedAt: now,
+            reviewedBy: actorUsername,
+            reviewedAt: now,
           },
         })
-      : await prisma.translation.updateMany({
-          where: { id, status: "approved" },
-          data: {
-            status: "verified",
-            verifiedByIdentityId: null,
-            verifiedAt: now,
-          },
-        });
+      : targetStatus === "verified"
+        ? await prisma.translation.updateMany({
+            where: { id, status: "approved" },
+            data: {
+              status: "verified",
+              verifiedBy: actorUsername,
+              verifiedAt: now,
+            },
+          })
+        : await prisma.translation.updateMany({
+            where: { id, status: { in: ["pending", "approved"] } },
+            data: {
+              status: "rejected",
+              reviewedBy: actorUsername,
+              reviewedAt: now,
+              verifiedBy: null,
+              verifiedAt: null,
+            },
+          });
 
   if (result.count !== 1) {
     return null;
