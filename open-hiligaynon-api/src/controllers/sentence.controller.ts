@@ -179,7 +179,6 @@ export const createSentence = async (req: Request, res: Response) => {
 
 export const updateSentence = async (req: Request, res: Response) => {
   try {
-    const authRequest = req as HilitechRequest;
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     if (!id) {
       return res.status(400).json({
@@ -331,7 +330,6 @@ export const deleteSentencesBulk = async (req: Request, res: Response) => {
 
 export const castVote = async (req: Request, res: Response) => {
   try {
-    const authRequest = req as HilitechRequest;
     const { sentenceId, type } = req.body;
 
     const ipAddress =
@@ -376,7 +374,6 @@ export const updateSentenceStatus = async (
   res: Response
 ) => {
   try {
-    const authRequest = req as HilitechRequest;
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const targetStatus = req.body.status as string | undefined;
 
