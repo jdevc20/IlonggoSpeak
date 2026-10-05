@@ -58,7 +58,7 @@ export default function TranslationDetailPage() {
       setError(null);
       const [data, metadata] = await Promise.all([
         SentenceService.get(id),
-        getMaintenanceOptions(),
+        getMaintenanceOptions({ page: 1, limit: 100 }),
       ]);
       setMaintenance(metadata.items);
       setSentence(data);
