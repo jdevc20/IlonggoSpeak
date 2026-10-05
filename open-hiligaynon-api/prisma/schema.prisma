@@ -61,7 +61,7 @@ model Translation {
 
   @@index([sourceTextId, targetTextId])
   @@index([status])
-  @@index([createdBy])
+  @@index([createdBy], map: "Translation_contributorIdentityId_idx")
   @@index([createdAt(sort: Desc)])
 }
 
@@ -226,7 +226,7 @@ model Dataset {
   updatedAt             DateTime      @updatedAt
 
   @@unique([name, version])
-  @@index([generatedBy])
+  @@index([generatedBy], map: "Dataset_generatedByIdentityId_idx")
 }
 
 model DatasetItem {
