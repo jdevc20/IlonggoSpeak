@@ -51,19 +51,10 @@ export const deleteSentencesBulk = async (ids: string[]) => {
   return res.data;
 };
 
-export const castVote = async (data: {
-  sentenceId: string;
-  type: "UP" | "DOWN";
-  userId?: string;
-}) => {
-  const res = await api.post("/sentences/vote", data);
-  return res.data;
-};
-
 
 export const moderateSentence = async (
   id: string,
-  status: "approved" | "verified"
+  status: "approved" | "verified" | "rejected"
 ) => {
   const res = await api.patch(`/sentences/${id}/status`, { status });
   return res.data;
