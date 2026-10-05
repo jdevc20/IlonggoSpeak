@@ -1,6 +1,6 @@
 {
   "info": {
-    "name": "Open Hiligaynon Linguistic Engine API",
+    "name": "Ilonggo Speak Linguistic Engine API",
     "_postman_id": "8b2c3f5a-1111-4444-9999-abcdef123456",
     "description": "Translation corpus compatibility API plus dictionary, linguistic analysis, and dataset export endpoints.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"

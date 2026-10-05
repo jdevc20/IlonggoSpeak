@@ -5,12 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AppNav } from "@/components/AppNav";
 import { SentenceService } from "@/services/sentenceService";
-import { useAuth } from "@/contexts/AuthContext";
 
 export default function CreateSentencePage() {
   const router = useRouter();
-  const { session } = useAuth();
-
   const [english, setEnglish] = useState("");
   const [hiligaynon, setHiligaynon] = useState("");
   const [sentiment, setSentiment] = useState(1);
@@ -104,12 +101,10 @@ export default function CreateSentencePage() {
         </div>
 
         <div className="mt-6 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-200">
-          <p className="font-semibold">
-            {session ? "Signed-in contribution" : "Guest contribution"}
-          </p>
+          <p className="font-semibold">Open contribution</p>
           <p className="mt-1 text-blue-800/80 dark:text-blue-200/80">
-            Every new contribution is saved as Pending. Signed-in Hilitech users
-            can approve pending records, and Hilitech admins can verify approved records.
+            No account is required. Every new contribution is saved as Pending and can
+            move through the existing approval and verification workflow.
           </p>
         </div>
 

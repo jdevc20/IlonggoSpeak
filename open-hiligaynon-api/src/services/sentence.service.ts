@@ -507,8 +507,7 @@ export type ModerationTargetStatus = "approved" | "verified";
 
 export const setModerationStatus = async (
   id: string,
-  targetStatus: ModerationTargetStatus,
-  actorIdentityId: string
+  targetStatus: ModerationTargetStatus
 ) => {
   const now = new Date();
 
@@ -518,7 +517,7 @@ export const setModerationStatus = async (
           where: { id, status: "pending" },
           data: {
             status: "approved",
-            approvedByIdentityId: actorIdentityId,
+            approvedByIdentityId: null,
             approvedAt: now,
           },
         })
@@ -526,7 +525,7 @@ export const setModerationStatus = async (
           where: { id, status: "approved" },
           data: {
             status: "verified",
-            verifiedByIdentityId: actorIdentityId,
+            verifiedByIdentityId: null,
             verifiedAt: now,
           },
         });

@@ -181,7 +181,7 @@ async function main() {
     update: {},
     create: {
       id: "sample-source-v1",
-      title: "Open Hiligaynon Engine sample corpus",
+      title: "Ilonggo Speak sample corpus",
       sourceType: "synthetic-sample",
       citation: "Seed data for local development and schema validation.",
     },
@@ -192,7 +192,7 @@ async function main() {
     update: {},
     create: {
       id: "sample-dataset-v1",
-      name: "Open Hiligaynon Sample",
+      name: "Ilonggo Speak Sample",
       version: "1.0",
       description: "Small development dataset for translation, annotation, dictionary, and export testing.",
     },

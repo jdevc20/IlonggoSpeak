@@ -1,5 +1,4 @@
 import { Request, Response } from "express";
-import type { HilitechRequest } from "../middleware/hilitech-auth.middleware.js";
 import * as sentenceService from "../services/sentence.service.js";
 
 const ALLOWED_STATUSES = new Set(["pending", "verified", "approved", "rejected"]);
@@ -112,7 +111,6 @@ export const getSentenceById = async (req: Request, res: Response) => {
 
 export const createSentence = async (req: Request, res: Response) => {
   try {
-    const authRequest = req as HilitechRequest;
     const {
       english,
       hiligaynon,
@@ -151,8 +149,8 @@ export const createSentence = async (req: Request, res: Response) => {
       sentiment,
       intent,
       isSarcastic,
-      contributorIdentityId: authRequest.hilitechUser?.identityId ?? null,
-      contributorType: authRequest.hilitechUser ? "registered" : "guest",
+      contributorIdentityId: null,
+      contributorType: "guest",
       translationType,
       confidence: parsedConfidence,
       notes,
@@ -181,7 +179,6 @@ export const createSentence = async (req: Request, res: Response) => {
 
 export const updateSentence = async (req: Request, res: Response) => {
   try {
-    const authRequest = req as HilitechRequest;
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     if (!id) {
       return res.status(400).json({
@@ -205,15 +202,6 @@ export const updateSentence = async (req: Request, res: Response) => {
       });
     }
 
-    const actorRole = authRequest.hilitechUser?.role;
-    const isAdmin = actorRole === "ADMIN" || actorRole === "SUPER_ADMIN";
-
-    if (!isAdmin && existing.status !== "pending") {
-      return res.status(403).json({
-        error: "Contribution is locked for review",
-        details: "Registered users may edit only pending contributions. Approved or verified records require an admin edit and must be reviewed again.",
-      });
-    }
 
     const sentiment = parseSentiment(req.body.sentiment);
     const parsedConfidence =
@@ -257,7 +245,7 @@ export const updateSentence = async (req: Request, res: Response) => {
       ...(req.body.notes !== undefined ? { notes: req.body.notes } : {}),
       ...(req.body.register !== undefined ? { register: req.body.register } : {}),
       ...(req.body.domain !== undefined ? { domain: req.body.domain } : {}),
-    }, isAdmin && existing.status !== "pending");
+    }, existing.status !== "pending");
 
     if (!data) {
       return res.status(404).json({
@@ -342,7 +330,6 @@ export const deleteSentencesBulk = async (req: Request, res: Response) => {
 
 export const castVote = async (req: Request, res: Response) => {
   try {
-    const authRequest = req as HilitechRequest;
     const { sentenceId, type } = req.body;
 
     const ipAddress =
@@ -362,7 +349,6 @@ export const castVote = async (req: Request, res: Response) => {
       sentenceId,
       ipAddress,
       type,
-      userId: authRequest.hilitechUser?.identityId,
     });
 
     if (!data) {
@@ -388,10 +374,8 @@ export const updateSentenceStatus = async (
   res: Response
 ) => {
   try {
-    const authRequest = req as HilitechRequest;
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const targetStatus = req.body.status as string | undefined;
-    const actor = authRequest.hilitechUser;
 
     if (!id) {
       return res.status(400).json({
@@ -400,17 +384,11 @@ export const updateSentenceStatus = async (
       });
     }
 
-    if (!actor) {
-      return res.status(401).json({
-        error: "Authentication required",
-        details: "Sign in with Hilitech Authentication to moderate contributions.",
-      });
-    }
 
     if (targetStatus !== "approved" && targetStatus !== "verified") {
       return res.status(400).json({
         error: "Invalid moderation status",
-        details: "Registered users may approve pending contributions; admins may verify approved contributions.",
+        details: "Status must be either approved or verified.",
       });
     }
 
@@ -431,14 +409,6 @@ export const updateSentenceStatus = async (
         });
       }
     } else {
-      const isAdmin = actor.role === "ADMIN" || actor.role === "SUPER_ADMIN";
-
-      if (!isAdmin) {
-        return res.status(403).json({
-          error: "Admin permission required",
-          details: "Only Hilitech ADMIN or SUPER_ADMIN accounts can verify contributions.",
-        });
-      }
 
       if (existing.status !== "approved") {
         return res.status(409).json({
@@ -448,11 +418,7 @@ export const updateSentenceStatus = async (
       }
     }
 
-    const data = await sentenceService.setModerationStatus(
-      id,
-      targetStatus,
-      actor.identityId
-    );
+    const data = await sentenceService.setModerationStatus(id, targetStatus);
 
     if (!data) {
       return res.status(409).json({

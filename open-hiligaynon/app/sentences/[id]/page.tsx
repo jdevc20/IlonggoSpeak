@@ -5,8 +5,6 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { AppNav } from "@/components/AppNav";
 import { SentenceService } from "@/services/sentenceService";
-import { useAuth } from "@/contexts/AuthContext";
-import { isHilitechAdmin } from "@/lib/auth";
 import type { Sentence } from "@/types/sentence";
 
 const sentimentName = (value: number) => {
@@ -18,13 +16,8 @@ const sentimentName = (value: number) => {
 export default function TranslationDetailPage() {
   const params = useParams();
   const id = String(params?.id ?? "");
-  const { session } = useAuth();
-  const canVerify = isHilitechAdmin(session?.user.role);
-
   const [sentence, setSentence] = useState<Sentence | null>(null);
-  const canEdit = Boolean(
-    session && sentence && (sentence.status === "pending" || canVerify)
-  );
+  const canEdit = Boolean(sentence);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [voting, setVoting] = useState(false);
@@ -78,14 +71,6 @@ export default function TranslationDetailPage() {
   const save = async (event: FormEvent) => {
     event.preventDefault();
 
-    if (!canEdit) {
-      setError(
-        session
-          ? "This contribution is locked after approval. Only a Hilitech admin can edit it."
-          : "Sign in with Hilitech Authentication to edit a contribution."
-      );
-      return;
-    }
 
     if (!sentence || !english.trim() || !hiligaynon.trim()) {
       setError("English and Hiligaynon text are required.");
@@ -156,7 +141,7 @@ export default function TranslationDetailPage() {
   };
 
   const moderate = async (status: "approved" | "verified") => {
-    if (!sentence || !session) return;
+    if (!sentence) return;
 
     try {
       setSaving(true);
@@ -249,7 +234,7 @@ export default function TranslationDetailPage() {
             >
               ▼ {sentence.downVotes}
             </button>
-            {session && sentence.status === "pending" && (
+            {sentence.status === "pending" && (
               <button
                 type="button"
                 onClick={() => void moderate("approved")}
@@ -259,7 +244,7 @@ export default function TranslationDetailPage() {
                 Approve
               </button>
             )}
-            {canVerify && sentence.status === "approved" && (
+            {sentence.status === "approved" && (
               <button
                 type="button"
                 onClick={() => void moderate("verified")}
@@ -311,7 +296,7 @@ export default function TranslationDetailPage() {
         <section className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {[
             ["Status", sentence.status],
-            ["Contributor", sentence.contributorType === "registered" ? "Hilitech user" : "Guest"],
+            ["Contributor", "Anonymous"],
             ["Type", sentence.translationType || "natural"],
             ["Sentiment", sentimentName(sentence.sentiment)],
             [
@@ -475,22 +460,10 @@ export default function TranslationDetailPage() {
             </h2>
           </div>
 
-          {!session && (
+          {sentence.status !== "pending" && (
             <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
-              Sign in with Hilitech Authentication to edit this record. Guests can
-              submit new contributions, but existing records are protected.
-            </div>
-          )}
-          {session && !canEdit && (
-            <div className="mt-5 rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300">
-              This record is {sentence.status}. Registered users can edit only
-              pending contributions. An admin must make later corrections.
-            </div>
-          )}
-          {session && canVerify && sentence.status !== "pending" && (
-            <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
-              Admin edits to an approved or verified record reset it to Pending so
-              the changed content must pass review again.
+              Editing an approved or verified record resets it to Pending so the changed
+              content can pass through review again.
             </div>
           )}
 

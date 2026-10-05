@@ -1,6 +1,6 @@
-# Open Hiligaynon
+# Ilonggo Speak
 
-Open Hiligaynon is an open-source Hiligaynon language-data platform for collecting translations and building reusable linguistic datasets. The project is designed for four related workloads:
+Ilonggo Speak is an open-source Hiligaynon language-data platform for collecting translations and building reusable linguistic datasets. The project is designed for four related workloads:
 
 - English ↔ Hiligaynon translation data
 - grammar and token-level linguistic analysis
@@ -14,7 +14,7 @@ The web application still presents a simple sentence-pair workflow, while the ba
 ## Architecture
 
 ```text
-HiligaynonEngine/
+IlonggoSpeak/
 ├── open-hiligaynon/          # Next.js frontend
 ├── open-hiligaynon-api/      # Express + TypeScript + Prisma API
 │   ├── prisma/
@@ -97,29 +97,28 @@ Base path: `/api/sentences`
 | `GET` | `/api/sentences` | List English → Hiligaynon translations |
 | `POST` | `/api/sentences` | Create a translation pair |
 | `GET` | `/api/sentences/:id` | Get one translation with token/grammar metadata |
-| `PATCH` | `/api/sentences/:id` | Update translation content (Hilitech sign-in required) |
+| `PATCH` | `/api/sentences/:id` | Update translation content |
 | `PATCH` | `/api/sentences/:id/status` | Moderate status: Pending → Approved → Verified |
-| `DELETE` | `/api/sentences/:id` | Delete a translation (Hilitech admin required) |
-| `POST` | `/api/engine/datasets/generate` | Generate a versioned dataset from Verified records (Hilitech admin required) |
+| `DELETE` | `/api/sentences/:id` | Delete a translation |
+| `POST` | `/api/engine/datasets/generate` | Generate a versioned dataset from Verified records |
 | `POST` | `/api/sentences/bulk-delete` | Delete multiple translations |
 | `POST` | `/api/sentences/vote` | Upvote, downvote, switch, or remove a vote |
 
 Supported list filters include `page`, `limit`, `search`, `sentiment`, `isSarcastic`, and `status`.
 
-### Hilitech Authentication and moderation
+### Open access and moderation
 
-Hiligaynon Engine accepts Hilitech access tokens in `Authorization: Bearer <token>`. The API verifies the JWT signature, expiry, issuer, and audience using the same access-token settings as `hilitech-auth-service`. The token `sub` claim is the immutable Hilitech `IdentityId` used for contribution and review attribution.
+Ilonggo Speak does not require authentication. The web app and API are intentionally open-access: users can browse, contribute, edit, vote, delete, generate datasets, and move records through the moderation workflow without signing in.
 
-The contribution workflow is enforced by the API:
+The existing review states are preserved as a lightweight data-quality workflow:
 
-- **Guest:** may create a translation; the server always stores it as `pending`.
-- **Registered Hilitech user:** may edit records and move a `pending` contribution to `approved`.
-- **Hilitech ADMIN / SUPER_ADMIN:** may move an `approved` contribution to `verified` and may delete records.
-- Status cannot be changed through the normal translation update endpoint.
+- New contributions are stored as `pending`.
+- A `pending` contribution can be moved to `approved`.
+- An `approved` contribution can be moved to `verified`.
+- Editing an approved or verified record resets it to `pending` so changed content can be reviewed again.
+- Dataset generation continues to use only `verified` translations.
 
-`Translation` stores the contributor identity when available plus the Hilitech identity and timestamp of approval/verification. Guest submissions intentionally have no Hilitech identity.
-
-Dataset generation is available in the frontend at `/datasets/generate`. The form is shown only to Hilitech `ADMIN` / `SUPER_ADMIN` users, and the API independently enforces the same permission. Generated datasets store their split membership plus generation filters, generating Hilitech `IdentityId`, and generation timestamp for reproducibility.
+Legacy identity/audit columns may remain nullable in the database for migration compatibility, but they are not populated by the application and no Hilitech/JWT authentication is used.
 
 The old HTTP migration endpoint was removed. Production migrations run through the deployment process instead of being triggerable over a public API.
 
@@ -248,7 +247,6 @@ Once production data has been validated against the new model, a later cleanup m
 - Node.js 22+
 - PostgreSQL
 - `DATABASE_URL` in `open-hiligaynon-api/.env`
-- Hilitech JWT settings from `open-hiligaynon-api/.env.example`
 
 ### API
 
@@ -262,7 +260,7 @@ npm run dev
 
 ### Frontend
 
-Copy `open-hiligaynon/.env.example` to `.env.local`. `NEXT_PUBLIC_HILITECH_CLIENT_ID` is optional until the app is registered in Hilitech Console.
+Copy `open-hiligaynon/.env.example` to `.env.local` and set the API base URL if needed.
 
 ```bash
 cd open-hiligaynon
@@ -270,7 +268,6 @@ npm install
 npm run dev
 ```
 
-For browser login, add the frontend origin to `CORS_ORIGINS` on `hilitech-auth-service`. For cross-site refresh cookies in production, Hilitech Auth must also use `COOKIE_SECURE=true` and `COOKIE_SAME_SITE=none`.
 
 ### Production database deployment
 
