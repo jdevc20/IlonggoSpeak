@@ -47,6 +47,10 @@ const REPAIRED_MIGRATIONS = [
   LINGUISTIC_MIGRATION,
 ] as const;
 
+const RETRYABLE_FAILED_MIGRATIONS = [
+  "20261005133000_add_maintenance_options",
+] as const;
+
 async function ensureDatabaseNamespace() {
   if (databaseSchema === "public") return;
 
@@ -80,14 +84,14 @@ async function hasTeamOnlySchema() {
       EXISTS (
         SELECT 1
         FROM information_schema.columns
-        WHERE table_schema = 'public'
+        WHERE table_schema = current_schema()
           AND table_name = 'Translation'
           AND column_name = 'upVotes'
       ) AS has_up_votes,
       EXISTS (
         SELECT 1
         FROM information_schema.columns
-        WHERE table_schema = 'public'
+        WHERE table_schema = current_schema()
           AND table_name = 'Translation'
           AND column_name = 'downVotes'
       ) AS has_down_votes;
@@ -208,8 +212,48 @@ async function runPrismaCli(args: string[]) {
   });
 }
 
+async function getMigrationState(migration: string) {
+  const result = await pool.query<{
+    finished_at: Date | null;
+    rolled_back_at: Date | null;
+  }>(
+    `
+      SELECT finished_at, rolled_back_at
+      FROM "_prisma_migrations"
+      WHERE migration_name = $1
+      ORDER BY started_at DESC
+      LIMIT 1
+    `,
+    [migration]
+  );
+
+  return result.rows[0] ?? null;
+}
+
 async function reconcileMigrationHistory() {
+  for (const migration of RETRYABLE_FAILED_MIGRATIONS) {
+    const state = await getMigrationState(migration);
+
+    if (state && !state.finished_at && !state.rolled_back_at) {
+      console.warn(`↩️ Marking failed migration as rolled back: ${migration}`);
+      const { stdout, stderr } = await runPrismaCli([
+        "migrate",
+        "resolve",
+        "--rolled-back",
+        migration,
+      ]);
+      if (stdout.trim()) console.log(stdout.trim());
+      if (stderr.trim()) console.warn(stderr.trim());
+    }
+  }
+
   for (const migration of REPAIRED_MIGRATIONS) {
+    const state = await getMigrationState(migration);
+
+    if (state?.finished_at && !state.rolled_back_at) {
+      continue;
+    }
+
     try {
       const { stdout, stderr } = await runPrismaCli([
         "migrate",
@@ -229,7 +273,6 @@ async function reconcileMigrationHistory() {
         .filter(Boolean)
         .join("\n");
 
-      // "already applied" is expected after the first successful repair.
       if (!/already applied|already recorded/i.test(output)) {
         console.warn(
           `⚠️ Could not mark migration ${migration} as applied. Continuing because the schema repair itself succeeded.`
