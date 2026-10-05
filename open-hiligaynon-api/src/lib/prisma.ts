@@ -32,7 +32,10 @@ export const pool = new pg.Pool({
   connectionString: schemaConnectionString,
 });
 
-const adapter = new PrismaPg(pool);
+const adapter = new PrismaPg(
+  { connectionString: schemaConnectionString },
+  { schema: databaseSchema }
+);
 
 export const prisma = new PrismaClient({
   adapter,
