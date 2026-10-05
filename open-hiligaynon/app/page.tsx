@@ -100,6 +100,11 @@ export default function DashboardPage() {
             <h2 className="mt-2 text-xl font-black">Verified Data</h2>
             <p className="mt-2 text-sm leading-6 text-zinc-500">Inspect records approved by a reviewer and verified by the Language Lead.</p>
           </Link>
+          <Link href="/documentation" className="rounded-2xl border border-zinc-200 bg-white p-6 hover:border-blue-300 dark:border-zinc-800 dark:bg-zinc-900">
+            <p className="text-sm font-semibold text-blue-600">Project wiki</p>
+            <h2 className="mt-2 text-xl font-black">Documentation</h2>
+            <p className="mt-2 text-sm leading-6 text-zinc-500">Understand team roles, data workflow, dataset standards, and the machine-learning roadmap.</p>
+          </Link>
         </section>
       </main>
     </div>
