@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { AppNav } from "@/components/AppNav";
 import { useAuth } from "@/contexts/AuthContext";
@@ -26,7 +27,7 @@ const statusBadge = (status: "current" | "planned") =>
     ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
     : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300";
 
-function Status({ children, status }: { children: React.ReactNode; status: "current" | "planned" }) {
+function Status({ children, status }: { children: ReactNode; status: "current" | "planned" }) {
   return (
     <span className={"inline-flex rounded-full px-2.5 py-1 text-xs font-semibold " + statusBadge(status)}>
       {children}
@@ -43,7 +44,7 @@ function Section({
   id: string;
   title: string;
   eyebrow?: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <section id={id} className="scroll-mt-24 border-b border-zinc-200 py-10 last:border-b-0 dark:border-zinc-800">
