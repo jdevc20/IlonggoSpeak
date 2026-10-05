@@ -76,7 +76,6 @@ VALUES
 ('translation_type:contextual','translation_type','contextual','Contextual','contextual','Meaning adapted to the surrounding context.',40,true,false),
 
 ('language_pair:en-hil','language_pair','en-hil','English → Hiligaynon','en-hil','Primary Ilonggo Speak translation direction.',10,true,true),
-('language_pair:hil-en','language_pair','hil-en','Hiligaynon → English','hil-en','Reverse translation direction.',20,true,false),
 
 ('unit_type:sentence','unit_type','sentence','Sentence','sentence','Complete sentence or utterance.',10,true,true),
 ('unit_type:phrase','unit_type','phrase','Phrase','phrase','Phrase or short expression.',20,true,false),
