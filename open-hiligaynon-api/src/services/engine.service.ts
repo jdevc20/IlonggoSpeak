@@ -154,32 +154,33 @@ export const exportDataset = async (
         createdAt: "asc",
       },
       include: {
-      translation: {
-        include: {
-          sourceText: {
-            include: {
-              language: true,
-              annotation: true,
-            },
-          },
-          targetText: {
-            include: {
-              language: true,
-              annotation: true,
-              tokens: {
-                orderBy: {
-                  tokenOrder: "asc",
-                },
-                include: {
-                  lexeme: true,
-                },
+        translation: {
+          include: {
+            sourceText: {
+              include: {
+                language: true,
+                annotation: true,
               },
-              grammarAnnotations: true,
             },
-          },
-          sources: {
-            include: {
-              source: true,
+            targetText: {
+              include: {
+                language: true,
+                annotation: true,
+                tokens: {
+                  orderBy: {
+                    tokenOrder: "asc",
+                  },
+                  include: {
+                    lexeme: true,
+                  },
+                },
+                grammarAnnotations: true,
+              },
+            },
+            sources: {
+              include: {
+                source: true,
+              },
             },
           },
         },
@@ -224,7 +225,6 @@ export const exportDataset = async (
     })),
   };
 };
-
 
 export interface GenerateDatasetInput {
   name: string;
