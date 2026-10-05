@@ -9,13 +9,27 @@ import pg from "pg";
 const execFileAsync = promisify(execFile);
 const projectRoot = fileURLToPath(new URL("../../", import.meta.url));
 const connectionString = process.env.DATABASE_URL;
+const databaseSchema = process.env.DB_SCHEMA?.trim() || "public";
 
 if (!connectionString) {
   throw new Error("DATABASE_URL is not configured");
 }
 
+if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(databaseSchema)) {
+  throw new Error("DB_SCHEMA contains invalid characters");
+}
+
+const schemaUrl = new URL(connectionString);
+if (databaseSchema !== "public") {
+  schemaUrl.searchParams.set("schema", databaseSchema);
+  schemaUrl.searchParams.set("options", `-c search_path=${databaseSchema}`);
+}
+
+const schemaConnectionString = schemaUrl.toString();
+process.env.DATABASE_URL = schemaConnectionString;
+
 export const pool = new pg.Pool({
-  connectionString,
+  connectionString: schemaConnectionString,
 });
 
 const adapter = new PrismaPg(pool);
@@ -32,6 +46,28 @@ const REPAIRED_MIGRATIONS = [
   "20261001070000_refactor_linguistic_engine",
   LINGUISTIC_MIGRATION,
 ] as const;
+
+async function ensureDatabaseNamespace() {
+  if (databaseSchema === "public") return;
+
+  const adminPool = new pg.Pool({ connectionString });
+  try {
+    await adminPool.query(`CREATE SCHEMA IF NOT EXISTS "${databaseSchema}"`);
+  } finally {
+    await adminPool.end();
+  }
+}
+
+async function hasAnyIlonggoTables() {
+  const result = await pool.query<{ count: string }>(`
+    SELECT COUNT(*)::text AS count
+    FROM information_schema.tables
+    WHERE table_schema = current_schema()
+      AND table_name IN ('Sentence', 'Translation', 'TextUnit', 'Language');
+  `);
+
+  return Number(result.rows[0]?.count ?? 0) > 0;
+}
 
 async function hasTeamOnlySchema() {
   const result = await pool.query<{
@@ -232,17 +268,26 @@ async function reconcileMigrationHistory() {
  * The HTTP server is not started unless all required schema work succeeds.
  */
 export async function ensureDatabaseSchema() {
-  const teamOnlySchemaExists = await hasTeamOnlySchema();
+  await ensureDatabaseNamespace();
 
-  if (teamOnlySchemaExists) {
-    console.log("✅ Team-only corpus schema detected; skipping legacy vote-era backfill.");
+  const hasExistingIlonggoSchema = await hasAnyIlonggoTables();
+
+  if (!hasExistingIlonggoSchema) {
+    console.log(`🆕 Fresh Ilonggo Speak schema detected: ${databaseSchema}`);
+    await runPrismaCli(["migrate", "deploy"]);
   } else {
-    await ensureLegacySchema();
-    await forceLinguisticSchema();
-  }
+    const teamOnlySchemaExists = await hasTeamOnlySchema();
 
-  await enforceTeamOnlySchema();
-  await reconcileMigrationHistory();
+    if (teamOnlySchemaExists) {
+      console.log("✅ Team-only corpus schema detected; skipping legacy vote-era backfill.");
+    } else {
+      await ensureLegacySchema();
+      await forceLinguisticSchema();
+    }
+
+    await enforceTeamOnlySchema();
+    await reconcileMigrationHistory();
+  }
 
   const verification = await pool.query<{
     translation: string | null;
