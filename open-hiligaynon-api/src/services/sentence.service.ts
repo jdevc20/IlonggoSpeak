@@ -43,7 +43,7 @@ export interface SentenceQueryParams {
   search?: string;
   sentiment?: number;
   isSarcastic?: boolean;
-  status?: string;
+  status?: string | string[];
 }
 
 export interface CreateSentenceInput {
@@ -244,7 +244,9 @@ export const getAllSentences = async (params: SentenceQueryParams = {}) => {
   }
 
   if (status) {
-    conditions.push({ status });
+    conditions.push({
+      status: Array.isArray(status) ? { in: status } : status,
+    });
   }
 
   if (sentiment !== undefined || isSarcastic !== undefined) {

@@ -2,12 +2,12 @@ import * as engineApi from "@/lib/engine";
 import type { GenerateDatasetInput } from "@/types/engine";
 
 export const EngineService = {
-  async dictionary(query: string, language = "hil", limit = 25) {
-    return engineApi.searchDictionary(query, language, limit);
+  async dictionary(query: string, language = "hil", page = 1, limit = 20) {
+    return engineApi.searchDictionary(query, language, page, limit);
   },
 
-  async exportDataset(datasetId: string, split?: string) {
-    return engineApi.exportDataset(datasetId, split);
+  async exportDataset(datasetId: string, split?: string, page = 1, limit = 20) {
+    return engineApi.exportDataset(datasetId, split, page, limit);
   },
 
   async generateDataset(input: GenerateDatasetInput) {

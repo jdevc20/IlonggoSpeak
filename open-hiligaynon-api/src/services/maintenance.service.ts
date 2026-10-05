@@ -33,14 +33,25 @@ const normalizeCode = (value: string) =>
 export const listMaintenanceOptions = async (args?: {
   category?: MaintenanceCategory;
   activeOnly?: boolean;
+  skip?: number;
+  take?: number;
 }) => {
-  return prisma.maintenanceOption.findMany({
-    where: {
-      ...(args?.category ? { category: args.category } : {}),
-      ...(args?.activeOnly ? { active: true } : {}),
-    },
-    orderBy: [{ category: "asc" }, { sortOrder: "asc" }, { label: "asc" }],
-  });
+  const where = {
+    ...(args?.category ? { category: args.category } : {}),
+    ...(args?.activeOnly ? { active: true } : {}),
+  };
+
+  const [items, total] = await prisma.$transaction([
+    prisma.maintenanceOption.findMany({
+      where,
+      skip: args?.skip ?? 0,
+      take: args?.take ?? 25,
+      orderBy: [{ category: "asc" }, { sortOrder: "asc" }, { label: "asc" }],
+    }),
+    prisma.maintenanceOption.count({ where }),
+  ]);
+
+  return { items, total };
 };
 
 export const createMaintenanceOption = async (input: MaintenanceOptionInput) => {

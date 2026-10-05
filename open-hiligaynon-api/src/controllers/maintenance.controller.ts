@@ -9,6 +9,7 @@ import {
   updateMaintenanceOption,
   type MaintenanceOptionInput,
 } from "../services/maintenance.service.js";
+import { buildPaginationMeta, parsePagination } from "../utils/pagination.js";
 
 const parseInput = (body: any, partial = false) => {
   const category = body.category === undefined ? undefined : String(body.category);
@@ -63,17 +64,28 @@ export const getMaintenanceOptions = async (req: TeamRequest, res: Response) => 
       });
     }
 
+    const pagination = parsePagination(req.query.page, req.query.limit, 25, 100);
+    if (!pagination) {
+      return res.status(400).json({
+        error: "Invalid pagination parameter",
+        details: "'page' must be positive and 'limit' must be between 1 and 100.",
+      });
+    }
+
     const includeInactive =
       req.teamUser?.role === "ADMIN" && req.query.includeInactive === "true";
 
-    const items = await listMaintenanceOptions({
+    const result = await listMaintenanceOptions({
       category: category as MaintenanceOptionInput["category"] | undefined,
       activeOnly: !includeInactive,
+      skip: pagination.skip,
+      take: pagination.limit,
     });
 
     return res.status(200).json({
-      items,
+      items: result.items,
       categories: MAINTENANCE_CATEGORIES,
+      meta: buildPaginationMeta(result.total, pagination.page, pagination.limit),
     });
   } catch (error: any) {
     return res.status(500).json({

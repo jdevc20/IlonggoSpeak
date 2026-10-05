@@ -32,7 +32,7 @@ export default function CreateSentencePage() {
   const options = (category: string) => grouped[category] ?? [];
 
   useEffect(() => {
-    void getMaintenanceOptions()
+    void getMaintenanceOptions({ page: 1, limit: 100 })
       .then(({ items }) => {
         setMaintenance(items);
         const groups = groupMaintenanceOptions(items);

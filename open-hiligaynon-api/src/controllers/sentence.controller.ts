@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import type { TeamRequest } from "../middleware/team-auth.middleware.js";
 import * as sentenceService from "../services/sentence.service.js";
 import { assertActiveMaintenanceValue } from "../services/maintenance.service.js";
+import { buildPaginationMeta, parsePagination } from "../utils/pagination.js";
 
 const ALLOWED_STATUSES = new Set(["pending", "verified", "approved", "rejected"]);
 const validateMaintenanceSelections = async (input: {
@@ -59,24 +60,27 @@ const validateSemanticInput = (
 
 export const getSentences = async (req: Request, res: Response) => {
   try {
-    const page = typeof req.query.page === "string" ? Number.parseInt(req.query.page, 10) : 1;
-    const limit = typeof req.query.limit === "string" ? Number.parseInt(req.query.limit, 10) : 50;
+    const pagination = parsePagination(req.query.page, req.query.limit, 25, 100);
+    if (!pagination) {
+      return res.status(400).json({
+        error: "Invalid pagination parameter",
+        details: "'page' must be positive and 'limit' must be between 1 and 100.",
+      });
+    }
+
     const search = typeof req.query.search === "string" ? req.query.search : undefined;
-    const status = typeof req.query.status === "string" ? req.query.status : undefined;
+    const statuses =
+      typeof req.query.status === "string"
+        ? req.query.status.split(",").map((value) => value.trim()).filter(Boolean)
+        : [];
     const sentiment = parseSentiment(req.query.sentiment);
     const isSarcastic =
       typeof req.query.isSarcastic === "string"
         ? req.query.isSarcastic === "true"
         : undefined;
 
-    if (!Number.isInteger(page) || page < 1 || !Number.isInteger(limit) || limit < 1 || limit > 200) {
-      return res.status(400).json({
-        error: "Invalid pagination parameter",
-        details: "'page' must be positive and 'limit' must be between 1 and 200.",
-      });
-    }
-
-    const validationError = validateSemanticInput(sentiment, status);
+    const invalidStatus = statuses.find((status) => !ALLOWED_STATUSES.has(status));
+    const validationError = validateSemanticInput(sentiment, invalidStatus);
     if (validationError) {
       return res.status(400).json({
         error: "Validation failed",
@@ -85,15 +89,22 @@ export const getSentences = async (req: Request, res: Response) => {
     }
 
     const result = await sentenceService.getAllSentences({
-      skip: (page - 1) * limit,
-      take: limit,
+      skip: pagination.skip,
+      take: pagination.limit,
       search,
       sentiment,
       isSarcastic,
-      status,
+      status: statuses.length > 0 ? statuses : undefined,
     });
 
-    return res.status(200).json(result);
+    return res.status(200).json({
+      items: result.items,
+      meta: {
+        ...buildPaginationMeta(result.meta.total, pagination.page, pagination.limit),
+        skip: pagination.skip,
+        take: pagination.limit,
+      },
+    });
   } catch (error: any) {
     console.error("[getSentences Error]:", error);
     return res.status(500).json({
