@@ -48,8 +48,6 @@ export interface Sentence {
   normalizedHiligaynon: string;
   status: TranslationStatus;
 
-  upVotes: number;
-  downVotes: number;
 
   sentiment: number;
   intent: string | null;
@@ -61,11 +59,10 @@ export interface Sentence {
   confidence: number | null;
   notes: string | null;
 
-  contributorIdentityId: string | null;
-  contributorType: "guest" | "registered";
-  approvedByIdentityId: string | null;
-  approvedAt: string | null;
-  verifiedByIdentityId: string | null;
+  createdBy: string | null;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  verifiedBy: string | null;
   verifiedAt: string | null;
 
   sourceLanguage: string;

@@ -49,15 +49,11 @@ model Translation {
   translationType String              @default("natural")
   confidence      Float?
   notes                   String?
-  contributorIdentityId   String?
-  contributorType         String              @default("guest")
-  approvedByIdentityId    String?
-  approvedAt              DateTime?
-  verifiedByIdentityId    String?
+  createdBy               String?             @map("contributorIdentityId")
+  reviewedBy              String?             @map("approvedByIdentityId")
+  reviewedAt              DateTime?           @map("approvedAt")
+  verifiedBy              String?             @map("verifiedByIdentityId")
   verifiedAt              DateTime?
-  upVotes                 Int                 @default(0)
-  downVotes               Int                 @default(0)
-  votes           TranslationVote[]
   datasetItems    DatasetItem[]
   sources         TranslationSource[]
   createdAt       DateTime            @default(now())
@@ -65,7 +61,7 @@ model Translation {
 
   @@index([sourceTextId, targetTextId])
   @@index([status])
-  @@index([contributorIdentityId])
+  @@index([createdBy], map: "Translation_contributorIdentityId_idx")
   @@index([createdAt(sort: Desc)])
 }
 
@@ -178,7 +174,7 @@ model GrammarAnnotation {
 model SourceRecord {
   id           String              @id @default(uuid())
   title        String
-  sourceType   String              @default("community")
+  sourceType   String              @default("team")
   author       String?
   url          String?
   license      String?
@@ -223,14 +219,14 @@ model Dataset {
   description           String?
   license               String?
   generationConfig      Json?
-  generatedByIdentityId String?
+  generatedBy           String?       @map("generatedByIdentityId")
   generatedAt           DateTime?
   items                 DatasetItem[]
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
 
   @@unique([name, version])
-  @@index([generatedByIdentityId])
+  @@index([generatedBy], map: "Dataset_generatedByIdentityId_idx")
 }
 
 model DatasetItem {
@@ -248,15 +244,3 @@ model DatasetItem {
   @@index([datasetId, split])
 }
 
-model TranslationVote {
-  id            String      @id @default(uuid())
-  translationId String
-  translation   Translation @relation(fields: [translationId], references: [id], onDelete: Cascade)
-  userId        String?
-  ipAddress     String
-  type          String
-  createdAt     DateTime    @default(now())
-
-  @@unique([translationId, ipAddress])
-  @@index([translationId])
-}

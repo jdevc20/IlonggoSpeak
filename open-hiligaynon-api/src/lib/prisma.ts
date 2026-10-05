@@ -33,6 +33,34 @@ const REPAIRED_MIGRATIONS = [
   LINGUISTIC_MIGRATION,
 ] as const;
 
+async function hasTeamOnlySchema() {
+  const result = await pool.query<{
+    translation: string | null;
+    has_up_votes: boolean;
+    has_down_votes: boolean;
+  }>(`
+    SELECT
+      to_regclass('"Translation"')::text AS translation,
+      EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'Translation'
+          AND column_name = 'upVotes'
+      ) AS has_up_votes,
+      EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'Translation'
+          AND column_name = 'downVotes'
+      ) AS has_down_votes;
+  `);
+
+  const row = result.rows[0];
+  return Boolean(row?.translation && !row.has_up_votes && !row.has_down_votes);
+}
+
 async function ensureLegacySchema() {
   await pool.query(`
     ALTER TABLE "Sentence"
@@ -114,6 +142,27 @@ async function forceLinguisticSchema() {
   await pool.query(migrationSql);
 }
 
+async function enforceTeamOnlySchema() {
+  console.log("🔒 Enforcing Ilonggo Speak team-only schema cleanup");
+
+  await pool.query(`
+    DROP TABLE IF EXISTS "TranslationVote";
+    DROP TABLE IF EXISTS "Vote";
+
+    ALTER TABLE "Translation"
+      DROP COLUMN IF EXISTS "upVotes",
+      DROP COLUMN IF EXISTS "downVotes",
+      DROP COLUMN IF EXISTS "contributorType";
+
+    ALTER TABLE "SourceRecord"
+      ALTER COLUMN "sourceType" SET DEFAULT 'team';
+
+    UPDATE "SourceRecord"
+    SET "sourceType" = 'team'
+    WHERE "sourceType" = 'community';
+  `);
+}
+
 async function runPrismaCli(args: string[]) {
   const executable = process.platform === "win32" ? "npx.cmd" : "npx";
 
@@ -183,8 +232,16 @@ async function reconcileMigrationHistory() {
  * The HTTP server is not started unless all required schema work succeeds.
  */
 export async function ensureDatabaseSchema() {
-  await ensureLegacySchema();
-  await forceLinguisticSchema();
+  const teamOnlySchemaExists = await hasTeamOnlySchema();
+
+  if (teamOnlySchemaExists) {
+    console.log("✅ Team-only corpus schema detected; skipping legacy vote-era backfill.");
+  } else {
+    await ensureLegacySchema();
+    await forceLinguisticSchema();
+  }
+
+  await enforceTeamOnlySchema();
   await reconcileMigrationHistory();
 
   const verification = await pool.query<{

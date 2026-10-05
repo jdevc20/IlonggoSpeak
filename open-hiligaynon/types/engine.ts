@@ -116,7 +116,7 @@ export interface GeneratedDatasetResult {
     version: string;
     description: string | null;
     license: string | null;
-    generatedByIdentityId: string | null;
+    generatedBy: string | null;
     generatedAt: string | null;
     generationConfig: Record<string, unknown> | null;
   };

@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import type { TeamRequest } from "../middleware/team-auth.middleware.js";
 import * as engineService from "../services/engine.service.js";
 
 export const dictionaryLookup = async (req: Request, res: Response) => {
@@ -97,6 +98,7 @@ export const datasetExport = async (req: Request, res: Response) => {
 
 export const generateDataset = async (req: Request, res: Response) => {
   try {
+    const actor = (req as TeamRequest).teamUser!;
     const name = typeof req.body.name === "string" ? req.body.name.trim() : "";
     const version =
       typeof req.body.version === "string" ? req.body.version.trim() : "1.0";
@@ -212,6 +214,7 @@ export const generateDataset = async (req: Request, res: Response) => {
       trainPercent,
       validationPercent,
       testPercent,
+      generatedBy: actor.username,
     });
 
     if (!data) {

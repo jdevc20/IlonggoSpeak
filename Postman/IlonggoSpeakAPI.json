@@ -1,38 +1,44 @@
 {
   "info": {
-    "name": "Ilonggo Speak Linguistic Engine API",
+    "name": "Ilonggo Speak Team API",
     "_postman_id": "8b2c3f5a-1111-4444-9999-abcdef123456",
-    "description": "Translation corpus compatibility API plus dictionary, linguistic analysis, and dataset export endpoints.",
+    "description": "Team-only Ilonggo Speak corpus, review, dictionary, and dataset API.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8000/api" },
+    { "key": "teamToken", "value": "" }
+  ],
   "item": [
     {
-      "name": "List Translations",
+      "name": "Team Login",
       "request": {
-        "method": "GET",
-        "header": [],
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"contributor\",\n  \"password\": \"change-me\"\n}"
+        },
         "url": {
-          "raw": "{{baseUrl}}/sentences?page=1&limit=50&search=&status=verified",
+          "raw": "{{baseUrl}}/auth/login",
           "host": ["{{baseUrl}}"],
-          "path": ["sentences"],
-          "query": [
-            { "key": "page", "value": "1" },
-            { "key": "limit", "value": "50" },
-            { "key": "search", "value": "" },
-            { "key": "status", "value": "verified" }
-          ]
+          "path": ["auth", "login"]
         }
       }
     },
     {
-      "name": "Get Translation By ID",
+      "name": "List Corpus",
       "request": {
         "method": "GET",
-        "header": [],
+        "header": [{ "key": "Authorization", "value": "Bearer {{teamToken}}" }],
         "url": {
-          "raw": "{{baseUrl}}/sentences/:id",
+          "raw": "{{baseUrl}}/sentences?page=1&limit=50",
           "host": ["{{baseUrl}}"],
-          "path": ["sentences", ":id"]
+          "path": ["sentences"],
+          "query": [
+            { "key": "page", "value": "1" },
+            { "key": "limit", "value": "50" }
+          ]
         }
       }
     },
@@ -41,11 +47,12 @@
       "request": {
         "method": "POST",
         "header": [
+          { "key": "Authorization", "value": "Bearer {{teamToken}}" },
           { "key": "Content-Type", "value": "application/json" }
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"english\": \"Where are you going?\",\n  \"hiligaynon\": \"Diin ka makadto?\",\n  \"sentiment\": 1,\n  \"intent\": \"location_question\",\n  \"domain\": \"daily_life\",\n  \"status\": \"pending\"\n}"
+          "raw": "{\n  \"english\": \"Where are you going?\",\n  \"hiligaynon\": \"Diin ka makadto?\",\n  \"sentiment\": 1,\n  \"intent\": \"location_question\",\n  \"domain\": \"daily_life\"\n}"
         },
         "url": {
           "raw": "{{baseUrl}}/sentences",
@@ -55,38 +62,21 @@
       }
     },
     {
-      "name": "Update Translation",
+      "name": "Review Translation",
       "request": {
         "method": "PATCH",
         "header": [
+          { "key": "Authorization", "value": "Bearer {{teamToken}}" },
           { "key": "Content-Type", "value": "application/json" }
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"status\": \"verified\",\n  \"confidence\": 0.95\n}"
+          "raw": "{\n  \"status\": \"approved\"\n}"
         },
         "url": {
-          "raw": "{{baseUrl}}/sentences/:id",
+          "raw": "{{baseUrl}}/sentences/:id/status",
           "host": ["{{baseUrl}}"],
-          "path": ["sentences", ":id"]
-        }
-      }
-    },
-    {
-      "name": "Vote On Translation",
-      "request": {
-        "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"sentenceId\": \"translation-id\",\n  \"type\": \"UP\"\n}"
-        },
-        "url": {
-          "raw": "{{baseUrl}}/sentences/vote",
-          "host": ["{{baseUrl}}"],
-          "path": ["sentences", "vote"]
+          "path": ["sentences", ":id", "status"]
         }
       }
     },
@@ -94,7 +84,7 @@
       "name": "Dictionary Lookup",
       "request": {
         "method": "GET",
-        "header": [],
+        "header": [{ "key": "Authorization", "value": "Bearer {{teamToken}}" }],
         "url": {
           "raw": "{{baseUrl}}/engine/dictionary?q=gid&language=hil",
           "host": ["{{baseUrl}}"],
@@ -107,41 +97,21 @@
       }
     },
     {
-      "name": "Text Unit Analysis",
+      "name": "Generate Dataset",
       "request": {
-        "method": "GET",
-        "header": [],
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{teamToken}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Hiligaynon General Translation\",\n  \"version\": \"1.0\",\n  \"maxItems\": 10000,\n  \"excludeSarcastic\": true,\n  \"requireProvenance\": false,\n  \"trainPercent\": 80,\n  \"validationPercent\": 10,\n  \"testPercent\": 10\n}"
+        },
         "url": {
-          "raw": "{{baseUrl}}/engine/text-units/:id/analysis",
+          "raw": "{{baseUrl}}/engine/datasets/generate",
           "host": ["{{baseUrl}}"],
-          "path": ["engine", "text-units", ":id", "analysis"]
-        }
-      }
-    },
-    {
-      "name": "Export Training Split",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{baseUrl}}/engine/datasets/sample-dataset-v1/export?split=train",
-          "host": ["{{baseUrl}}"],
-          "path": ["engine", "datasets", "sample-dataset-v1", "export"],
-          "query": [
-            { "key": "split", "value": "train" }
-          ]
-        }
-      }
-    },
-    {
-      "name": "Delete Translation",
-      "request": {
-        "method": "DELETE",
-        "header": [],
-        "url": {
-          "raw": "{{baseUrl}}/sentences/:id",
-          "host": ["{{baseUrl}}"],
-          "path": ["sentences", ":id"]
+          "path": ["engine", "datasets", "generate"]
         }
       }
     }

@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import type { TeamRequest } from "../middleware/team-auth.middleware.js";
 import * as sentenceService from "../services/sentence.service.js";
 
 const ALLOWED_STATUSES = new Set(["pending", "verified", "approved", "rejected"]);
@@ -111,6 +112,7 @@ export const getSentenceById = async (req: Request, res: Response) => {
 
 export const createSentence = async (req: Request, res: Response) => {
   try {
+    const actor = (req as TeamRequest).teamUser!;
     const {
       english,
       hiligaynon,
@@ -149,8 +151,7 @@ export const createSentence = async (req: Request, res: Response) => {
       sentiment,
       intent,
       isSarcastic,
-      contributorIdentityId: null,
-      contributorType: "guest",
+      createdBy: actor.username,
       translationType,
       confidence: parsedConfidence,
       notes,
@@ -179,6 +180,7 @@ export const createSentence = async (req: Request, res: Response) => {
 
 export const updateSentence = async (req: Request, res: Response) => {
   try {
+    const actor = (req as TeamRequest).teamUser!;
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     if (!id) {
       return res.status(400).json({
@@ -202,6 +204,22 @@ export const updateSentence = async (req: Request, res: Response) => {
       });
     }
 
+    if (
+      actor.role === "CONTRIBUTOR" &&
+      (existing.status !== "pending" || existing.createdBy !== actor.username)
+    ) {
+      return res.status(403).json({
+        error: "Permission denied",
+        details: "Contributors may edit only their own pending translations.",
+      });
+    }
+
+    if (actor.role === "REVIEWER" && existing.status !== "pending") {
+      return res.status(403).json({
+        error: "Permission denied",
+        details: "Reviewers may edit pending translations before review.",
+      });
+    }
 
     const sentiment = parseSentiment(req.body.sentiment);
     const parsedConfidence =
@@ -245,7 +263,7 @@ export const updateSentence = async (req: Request, res: Response) => {
       ...(req.body.notes !== undefined ? { notes: req.body.notes } : {}),
       ...(req.body.register !== undefined ? { register: req.body.register } : {}),
       ...(req.body.domain !== undefined ? { domain: req.body.domain } : {}),
-    }, existing.status !== "pending");
+    }, actor.role === "ADMIN" && existing.status !== "pending");
 
     if (!data) {
       return res.status(404).json({
@@ -328,53 +346,13 @@ export const deleteSentencesBulk = async (req: Request, res: Response) => {
   }
 };
 
-export const castVote = async (req: Request, res: Response) => {
-  try {
-    const { sentenceId, type } = req.body;
-
-    const ipAddress =
-      (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
-      req.ip ||
-      req.socket.remoteAddress ||
-      "anonymous_client";
-
-    if (!sentenceId || (type !== "UP" && type !== "DOWN")) {
-      return res.status(400).json({
-        error: "Validation failed",
-        details: "'sentenceId' is required and 'type' must be 'UP' or 'DOWN'.",
-      });
-    }
-
-    const data = await sentenceService.castVote({
-      sentenceId,
-      ipAddress,
-      type,
-    });
-
-    if (!data) {
-      return res.status(404).json({
-        error: "Resource not found",
-        details: "The specified translation does not exist.",
-      });
-    }
-
-    return res.status(200).json({ data });
-  } catch (error: any) {
-    console.error("[castVote Error]:", error);
-    return res.status(500).json({
-      error: "Failed to register vote",
-      details: error?.message || "An unexpected error occurred.",
-    });
-  }
-};
-
-
 export const updateSentenceStatus = async (
   req: Request,
   res: Response
 ) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const actor = (req as TeamRequest).teamUser!;
     const targetStatus = req.body.status as string | undefined;
 
     if (!id) {
@@ -385,10 +363,14 @@ export const updateSentenceStatus = async (
     }
 
 
-    if (targetStatus !== "approved" && targetStatus !== "verified") {
+    if (
+      targetStatus !== "approved" &&
+      targetStatus !== "verified" &&
+      targetStatus !== "rejected"
+    ) {
       return res.status(400).json({
-        error: "Invalid moderation status",
-        details: "Status must be either approved or verified.",
+        error: "Invalid review status",
+        details: "Status must be approved, verified, or rejected.",
       });
     }
 
@@ -401,24 +383,45 @@ export const updateSentenceStatus = async (
       });
     }
 
-    if (targetStatus === "approved") {
-      if (existing.status !== "pending") {
-        return res.status(409).json({
-          error: "Invalid status transition",
-          details: `Only pending contributions can be approved. Current status: ${existing.status}.`,
+    if (targetStatus === "approved" && existing.status !== "pending") {
+      return res.status(409).json({
+        error: "Invalid status transition",
+        details: `Only pending translations can be approved. Current status: ${existing.status}.`,
+      });
+    }
+
+    if (targetStatus === "verified") {
+      if (actor.role !== "ADMIN") {
+        return res.status(403).json({
+          error: "Language Lead permission required",
+          details: "Only the Language Lead can verify translations.",
         });
       }
-    } else {
 
       if (existing.status !== "approved") {
         return res.status(409).json({
           error: "Invalid status transition",
-          details: `Only approved contributions can be verified. Current status: ${existing.status}.`,
+          details: `Only approved translations can be verified. Current status: ${existing.status}.`,
         });
       }
     }
 
-    const data = await sentenceService.setModerationStatus(id, targetStatus);
+    if (
+      targetStatus === "rejected" &&
+      existing.status !== "pending" &&
+      existing.status !== "approved"
+    ) {
+      return res.status(409).json({
+        error: "Invalid status transition",
+        details: `Only pending or approved translations can be rejected. Current status: ${existing.status}.`,
+      });
+    }
+
+    const data = await sentenceService.setModerationStatus(
+      id,
+      targetStatus,
+      actor.username
+    );
 
     if (!data) {
       return res.status(409).json({

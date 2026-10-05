@@ -3,10 +3,13 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { AppNav } from "@/components/AppNav";
+import { RoleGate } from "@/components/RoleGate";
+import { useAuth } from "@/contexts/AuthContext";
 import { EngineService } from "@/services/engineService";
 import type { DatasetExportResponse } from "@/types/engine";
 
 export default function DatasetsPage() {
+  const { session } = useAuth();
   const [datasetId, setDatasetId] = useState("");
   const [split, setSplit] = useState("");
   const [result, setResult] = useState<DatasetExportResponse | null>(null);
@@ -44,6 +47,7 @@ export default function DatasetsPage() {
   };
 
   return (
+    <RoleGate roles={["REVIEWER", "ADMIN"]}>
     <div className="min-h-screen bg-zinc-50 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-100">
       <AppNav />
 
@@ -62,6 +66,7 @@ export default function DatasetsPage() {
           </p>
         </div>
 
+        {session?.user.role === "ADMIN" && (
         <div className="mt-6 flex flex-col gap-3 rounded-2xl border border-blue-200 bg-blue-50 p-5 dark:border-blue-900 dark:bg-blue-950/30 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="font-bold text-blue-900 dark:text-blue-100">
@@ -78,6 +83,7 @@ export default function DatasetsPage() {
               Generate dataset
             </Link>
         </div>
+        )}
 
         <form
           onSubmit={loadDataset}
@@ -220,5 +226,6 @@ export default function DatasetsPage() {
         )}
       </main>
     </div>
+    </RoleGate>
   );
 }
