@@ -27,6 +27,7 @@
     "@types/node": "^25.9.1",
     "prisma": "^6.19.3",
     "tsx": "^4.22.3",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "@types/pg": "^8.15.5"
   }
 }
