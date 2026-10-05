@@ -29,7 +29,7 @@ export const SentenceService = {
     return sentenceApi.updateSentence(id, data);
   },
 
-  async moderate(id: string, status: "approved" | "verified") {
+  async moderate(id: string, status: "approved" | "verified" | "rejected") {
     return sentenceApi.moderateSentence(id, status);
   },
 
@@ -37,11 +37,4 @@ export const SentenceService = {
     return sentenceApi.deleteSentencesBulk(ids);
   },
 
-  async vote(data: {
-    sentenceId: string;
-    type: "UP" | "DOWN";
-    userId?: string;
-  }) {
-    return sentenceApi.castVote(data);
-  },
 };
