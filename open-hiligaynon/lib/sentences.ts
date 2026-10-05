@@ -1,10 +1,10 @@
 import { api } from "./api";
 import type { Sentence, TranslationInput } from "@/types/sentence";
+import type { PaginationMeta } from "@/types/pagination";
 
 export interface PaginatedSentences {
   items: Sentence[];
-  meta: {
-    total: number;
+  meta: PaginationMeta & {
     skip: number;
     take: number;
   };
