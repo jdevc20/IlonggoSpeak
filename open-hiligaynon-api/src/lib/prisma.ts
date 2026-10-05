@@ -33,6 +33,34 @@ const REPAIRED_MIGRATIONS = [
   LINGUISTIC_MIGRATION,
 ] as const;
 
+async function hasTeamOnlySchema() {
+  const result = await pool.query<{
+    translation: string | null;
+    has_up_votes: boolean;
+    has_down_votes: boolean;
+  }>(`
+    SELECT
+      to_regclass('"Translation"')::text AS translation,
+      EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'Translation'
+          AND column_name = 'upVotes'
+      ) AS has_up_votes,
+      EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'Translation'
+          AND column_name = 'downVotes'
+      ) AS has_down_votes;
+  `);
+
+  const row = result.rows[0];
+  return Boolean(row?.translation && !row.has_up_votes && !row.has_down_votes);
+}
+
 async function ensureLegacySchema() {
   await pool.query(`
     ALTER TABLE "Sentence"
@@ -204,8 +232,15 @@ async function reconcileMigrationHistory() {
  * The HTTP server is not started unless all required schema work succeeds.
  */
 export async function ensureDatabaseSchema() {
-  await ensureLegacySchema();
-  await forceLinguisticSchema();
+  const teamOnlySchemaExists = await hasTeamOnlySchema();
+
+  if (teamOnlySchemaExists) {
+    console.log("✅ Team-only corpus schema detected; skipping legacy vote-era backfill.");
+  } else {
+    await ensureLegacySchema();
+    await forceLinguisticSchema();
+  }
+
   await enforceTeamOnlySchema();
   await reconcileMigrationHistory();
 
