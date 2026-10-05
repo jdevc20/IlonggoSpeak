@@ -5,6 +5,7 @@ import {
   signTeamToken,
 } from "../auth/team-auth.js";
 import type { TeamRequest } from "../middleware/team-auth.middleware.js";
+import { buildPaginationMeta, parsePagination } from "../utils/pagination.js";
 
 export const login = (req: Request, res: Response) => {
   try {
@@ -47,9 +48,26 @@ export const login = (req: Request, res: Response) => {
 export const me = (req: Request, res: Response) =>
   res.status(200).json({ data: (req as TeamRequest).teamUser });
 
-export const teamMembers = (_req: Request, res: Response) => {
+export const teamMembers = (req: Request, res: Response) => {
   try {
-    return res.status(200).json({ data: listTeamUsers() });
+    const pagination = parsePagination(req.query.page, req.query.limit, 20, 100);
+    if (!pagination) {
+      return res.status(400).json({
+        error: "Invalid pagination parameter",
+        details: "'page' must be positive and 'limit' must be between 1 and 100.",
+      });
+    }
+
+    const members = listTeamUsers();
+    const items = members.slice(
+      pagination.skip,
+      pagination.skip + pagination.limit
+    );
+
+    return res.status(200).json({
+      items,
+      meta: buildPaginationMeta(members.length, pagination.page, pagination.limit),
+    });
   } catch (error: any) {
     return res.status(500).json({
       error: "Team configuration unavailable",
