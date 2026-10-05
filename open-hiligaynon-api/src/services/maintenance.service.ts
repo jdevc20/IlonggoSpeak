@@ -113,7 +113,7 @@ export const deleteMaintenanceOption = async (id: string) => {
 export const assertActiveMaintenanceValue = async (
   category: MaintenanceCategory,
   value: string | number | boolean | null | undefined,
-  fieldName = category
+  fieldName: string = category
 ) => {
   if (value === undefined || value === null || value === "") return;
 
