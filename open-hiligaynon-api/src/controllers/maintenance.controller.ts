@@ -67,7 +67,7 @@ export const getMaintenanceOptions = async (req: TeamRequest, res: Response) => 
       req.teamUser?.role === "ADMIN" && req.query.includeInactive === "true";
 
     const items = await listMaintenanceOptions({
-      category,
+      category: category as MaintenanceOptionInput["category"] | undefined,
       activeOnly: !includeInactive,
     });
 
@@ -116,7 +116,7 @@ export const updateMaintenance = async (req: TeamRequest, res: Response) => {
   }
 
   try {
-    const item = await updateMaintenanceOption(id, parsed.data);
+    const item = await updateMaintenanceOption(id, parsed.data ?? {});
     if (!item) return res.status(404).json({ error: "Maintenance option not found" });
     return res.status(200).json({ data: item });
   } catch (error: any) {
