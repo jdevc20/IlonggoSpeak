@@ -124,23 +124,6 @@ export const createSentence = async (req: Request, res: Response) => {
       domain,
     } = req.body;
 
-    if (
-      actor.role === "CONTRIBUTOR" &&
-      (existing.status !== "pending" || existing.createdBy !== actor.username)
-    ) {
-      return res.status(403).json({
-        error: "Permission denied",
-        details: "Contributors may edit only their own pending translations.",
-      });
-    }
-
-    if (actor.role === "REVIEWER" && existing.status !== "pending") {
-      return res.status(403).json({
-        error: "Permission denied",
-        details: "Reviewers may edit pending translations before review.",
-      });
-    }
-
     const sentiment = parseSentiment(req.body.sentiment);
     const parsedConfidence =
       confidence === undefined || confidence === null ? confidence : Number(confidence);
@@ -221,6 +204,22 @@ export const updateSentence = async (req: Request, res: Response) => {
       });
     }
 
+    if (
+      actor.role === "CONTRIBUTOR" &&
+      (existing.status !== "pending" || existing.createdBy !== actor.username)
+    ) {
+      return res.status(403).json({
+        error: "Permission denied",
+        details: "Contributors may edit only their own pending translations.",
+      });
+    }
+
+    if (actor.role === "REVIEWER" && existing.status !== "pending") {
+      return res.status(403).json({
+        error: "Permission denied",
+        details: "Reviewers may edit pending translations before review.",
+      });
+    }
 
     const sentiment = parseSentiment(req.body.sentiment);
     const parsedConfidence =
