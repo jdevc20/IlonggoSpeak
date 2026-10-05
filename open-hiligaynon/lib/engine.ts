@@ -9,10 +9,11 @@ import type {
 export const searchDictionary = async (
   query: string,
   language = "hil",
-  limit = 25
+  page = 1,
+  limit = 20
 ): Promise<DictionarySearchResponse> => {
   const res = await api.get("/engine/dictionary", {
-    params: { q: query, language, limit },
+    params: { q: query, language, page, limit },
   });
 
   return res.data;
@@ -21,10 +22,12 @@ export const searchDictionary = async (
 
 export const exportDataset = async (
   datasetId: string,
-  split?: string
+  split?: string,
+  page = 1,
+  limit = 20
 ): Promise<DatasetExportResponse> => {
   const res = await api.get("/engine/datasets/" + datasetId + "/export", {
-    params: split ? { split } : undefined,
+    params: { ...(split ? { split } : {}), page, limit },
   });
 
   return res.data;
