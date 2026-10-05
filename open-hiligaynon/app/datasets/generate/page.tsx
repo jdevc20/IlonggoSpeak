@@ -3,10 +3,13 @@
 import { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
 import { AppNav } from "@/components/AppNav";
+import { RoleGate } from "@/components/RoleGate";
+import { useAuth } from "@/contexts/AuthContext";
 import { EngineService } from "@/services/engineService";
 import type { GeneratedDatasetResult } from "@/types/engine";
 
 export default function GenerateDatasetPage() {
+  const { session } = useAuth();
   const [name, setName] = useState("Hiligaynon General Translation");
   const [version, setVersion] = useState("1.0");
   const [description, setDescription] = useState(
@@ -83,6 +86,7 @@ export default function GenerateDatasetPage() {
     "mt-2 h-11 w-full rounded-xl border border-zinc-300 bg-white px-4 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-950";
 
   return (
+    <RoleGate roles={["ADMIN"]}>
     <div className="min-h-screen bg-zinc-50 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-100">
       <AppNav />
 
@@ -127,7 +131,7 @@ export default function GenerateDatasetPage() {
             <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
               Triggered by
             </p>
-            <p className="mt-1 truncate font-bold">Open access</p>
+            <p className="mt-1 truncate font-bold">{session?.user.name || "Language Lead"}</p>
           </div>
         </div>
 
@@ -398,5 +402,6 @@ export default function GenerateDatasetPage() {
         )}
       </main>
     </div>
+    </RoleGate>
   );
 }
