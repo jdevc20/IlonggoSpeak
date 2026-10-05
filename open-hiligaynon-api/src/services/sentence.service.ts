@@ -59,6 +59,8 @@ export interface CreateSentenceInput {
   notes?: string | null;
   register?: string | null;
   domain?: string | null;
+  languagePair?: string | null;
+  unitType?: string | null;
 }
 
 export type UpdateSentenceInput = Partial<CreateSentenceInput>;
@@ -88,6 +90,8 @@ const toSentenceDto = (record: SentenceRecord) => {
     verifiedAt: record.verifiedAt,
     sourceLanguage: record.sourceText.language.code,
     targetLanguage: record.targetText.language.code,
+    languagePair: `${record.sourceText.language.code}-${record.targetText.language.code}`,
+    unitType: record.targetText.unitType,
     sourceTextId: record.sourceTextId,
     targetTextId: record.targetTextId,
     tokens: record.targetText.tokens.map((token) => ({
@@ -298,8 +302,9 @@ export const createSentence = async (data: CreateSentenceInput) => {
       getOrCreateLanguage(tx, "hil", "Hiligaynon", "Hiligaynon"),
     ]);
 
-    const sourceText = await getOrCreateTextUnit(tx, english.id, data.english);
-    const targetText = await getOrCreateTextUnit(tx, hiligaynon.id, data.hiligaynon);
+    const unitType = data.unitType ?? "sentence";
+    const sourceText = await getOrCreateTextUnit(tx, english.id, data.english, unitType);
+    const targetText = await getOrCreateTextUnit(tx, hiligaynon.id, data.hiligaynon, unitType);
 
     await upsertTargetAnnotation(tx, targetText.id, data);
 
@@ -339,6 +344,14 @@ export const updateSentence = async (
 ) => {
   const existing = await prisma.translation.findUnique({
     where: { id },
+    include: {
+      sourceText: true,
+      targetText: {
+        include: {
+          annotation: true,
+        },
+      },
+    },
   });
 
   if (!existing) return null;
@@ -347,15 +360,27 @@ export const updateSentence = async (
     let sourceTextId = existing.sourceTextId;
     let targetTextId = existing.targetTextId;
 
-    if (data.english !== undefined) {
+    const unitType = data.unitType ?? existing.targetText.unitType;
+
+    if (data.english !== undefined || data.unitType !== undefined) {
       const english = await getOrCreateLanguage(tx, "en", "English", "English");
-      const sourceText = await getOrCreateTextUnit(tx, english.id, data.english);
+      const sourceText = await getOrCreateTextUnit(
+        tx,
+        english.id,
+        data.english ?? existing.sourceText.text,
+        unitType
+      );
       sourceTextId = sourceText.id;
     }
 
-    if (data.hiligaynon !== undefined) {
+    if (data.hiligaynon !== undefined || data.unitType !== undefined) {
       const hiligaynon = await getOrCreateLanguage(tx, "hil", "Hiligaynon", "Hiligaynon");
-      const targetText = await getOrCreateTextUnit(tx, hiligaynon.id, data.hiligaynon);
+      const targetText = await getOrCreateTextUnit(
+        tx,
+        hiligaynon.id,
+        data.hiligaynon ?? existing.targetText.text,
+        unitType
+      );
       targetTextId = targetText.id;
     }
 
@@ -364,10 +389,18 @@ export const updateSentence = async (
       data.intent !== undefined ||
       data.isSarcastic !== undefined ||
       data.register !== undefined ||
-      data.domain !== undefined;
+      data.domain !== undefined ||
+      data.unitType !== undefined;
 
     if (hasAnnotationUpdate) {
-      await upsertTargetAnnotation(tx, targetTextId, data);
+      const previousAnnotation = existing.targetText.annotation;
+      await upsertTargetAnnotation(tx, targetTextId, {
+        sentiment: data.sentiment ?? previousAnnotation?.sentiment ?? 1,
+        intent: data.intent !== undefined ? data.intent : previousAnnotation?.intent ?? null,
+        isSarcastic: data.isSarcastic ?? previousAnnotation?.isSarcastic ?? false,
+        register: data.register !== undefined ? data.register : previousAnnotation?.register ?? null,
+        domain: data.domain !== undefined ? data.domain : previousAnnotation?.domain ?? null,
+      });
     }
 
     await tx.translation.update({

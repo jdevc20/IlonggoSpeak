@@ -244,3 +244,19 @@ model DatasetItem {
   @@index([datasetId, split])
 }
 
+model MaintenanceOption {
+  id          String   @id
+  category    String
+  code        String
+  label       String
+  value       String
+  description String?
+  sortOrder   Int      @default(0)
+  active      Boolean  @default(true)
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([category, code])
+  @@index([category, active, sortOrder])
+}

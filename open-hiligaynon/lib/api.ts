@@ -3,7 +3,7 @@ import { getStoredTeamSession, storeTeamSession } from "./auth";
 
 const baseURL =
   process.env.NEXT_PUBLIC_API_BASE_URL ||
-  "https://hiligaynonengine.onrender.com/api";
+  "https://ilonggospeak.onrender.com/api";
 
 export const api = axios.create({
   baseURL,
