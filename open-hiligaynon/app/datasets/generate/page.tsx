@@ -3,15 +3,10 @@
 import { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
 import { AppNav } from "@/components/AppNav";
-import { useAuth } from "@/contexts/AuthContext";
-import { isHilitechAdmin } from "@/lib/auth";
 import { EngineService } from "@/services/engineService";
 import type { GeneratedDatasetResult } from "@/types/engine";
 
 export default function GenerateDatasetPage() {
-  const { session, loading: authLoading } = useAuth();
-  const isAdmin = isHilitechAdmin(session?.user.role);
-
   const [name, setName] = useState("Hiligaynon General Translation");
   const [version, setVersion] = useState("1.0");
   const [description, setDescription] = useState(
@@ -42,8 +37,6 @@ export default function GenerateDatasetPage() {
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-
-    if (!isAdmin) return;
 
     if (Math.abs(splitTotal - 100) > 0.0001) {
       setError("Train, validation, and test percentages must total 100%.");
@@ -89,57 +82,6 @@ export default function GenerateDatasetPage() {
   const inputClass =
     "mt-2 h-11 w-full rounded-xl border border-zinc-300 bg-white px-4 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-950";
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-zinc-50 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-100">
-        <AppNav />
-        <main className="mx-auto w-full max-w-5xl px-4 py-20 text-center text-sm text-zinc-500">
-          Checking Hilitech admin access…
-        </main>
-      </div>
-    );
-  }
-
-  if (!session || !isAdmin) {
-    return (
-      <div className="min-h-screen bg-zinc-50 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-100">
-        <AppNav />
-        <main className="mx-auto w-full max-w-2xl px-4 py-16 sm:px-6">
-          <div className="rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-            <p className="text-sm font-semibold text-amber-600 dark:text-amber-400">
-              Admin-only operation
-            </p>
-            <h1 className="mt-2 text-3xl font-black tracking-tight">
-              Dataset generation restricted
-            </h1>
-            <p className="mt-3 leading-7 text-zinc-600 dark:text-zinc-400">
-              Only Hilitech ADMIN or SUPER_ADMIN accounts can generate dataset
-              versions. Dataset inspection and export remain separate from this
-              privileged generation action.
-            </p>
-
-            <div className="mt-6 flex flex-wrap gap-3">
-              {!session && (
-                <Link
-                  href="/sign-in"
-                  className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white"
-                >
-                  Sign in with Hilitech
-                </Link>
-              )}
-              <Link
-                href="/datasets"
-                className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold dark:border-zinc-700"
-              >
-                Back to datasets
-              </Link>
-            </div>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-100">
       <AppNav />
@@ -148,7 +90,7 @@ export default function GenerateDatasetPage() {
         <div className="flex flex-col gap-4 border-b border-zinc-200 pb-6 dark:border-zinc-800 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-sm font-semibold text-blue-600 dark:text-blue-400">
-              Admin · Dataset builder
+              Dataset builder
             </p>
             <h1 className="mt-1 text-3xl font-black tracking-tight sm:text-4xl">
               Generate dataset
@@ -185,11 +127,7 @@ export default function GenerateDatasetPage() {
             <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
               Triggered by
             </p>
-            <p className="mt-1 truncate font-bold">
-              {session.user.profile?.displayName ||
-                session.user.username ||
-                session.user.email}
-            </p>
+            <p className="mt-1 truncate font-bold">Open access</p>
           </div>
         </div>
 
