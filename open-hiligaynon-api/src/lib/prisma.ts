@@ -21,6 +21,7 @@ if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(databaseSchema)) {
 
 const schemaUrl = new URL(connectionString);
 if (databaseSchema !== "public") {
+  schemaUrl.searchParams.set("schema", databaseSchema);
   schemaUrl.searchParams.set("options", `-c search_path=${databaseSchema}`);
 }
 
