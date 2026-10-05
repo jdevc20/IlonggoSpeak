@@ -5,69 +5,75 @@ import { normalizeText } from "../utils/normalize.js";
 export const searchDictionary = async (
   query: string,
   languageCode = "hil",
-  limit = 25
+  skip = 0,
+  take = 25
 ) => {
   const normalized = normalizeText(query);
+  const where: Prisma.LexemeWhereInput = {
+    language: {
+      is: {
+        code: languageCode,
+      },
+    },
+    OR: [
+      {
+        normalizedLemma: {
+          contains: normalized,
+        },
+      },
+      {
+        senses: {
+          some: {
+            OR: [
+              { definition: { contains: query, mode: "insensitive" } },
+              { gloss: { contains: query, mode: "insensitive" } },
+            ],
+          },
+        },
+      },
+    ],
+  };
 
-  const entries = await prisma.lexeme.findMany({
-    where: {
-      language: {
-        is: {
-          code: languageCode,
-        },
+  const [entries, total] = await prisma.$transaction([
+    prisma.lexeme.findMany({
+      where,
+      skip,
+      take,
+      orderBy: {
+        lemma: "asc",
       },
-      OR: [
-        {
-          normalizedLemma: {
-            contains: normalized,
-          },
-        },
-        {
-          senses: {
-            some: {
-              OR: [
-                { definition: { contains: query, mode: "insensitive" } },
-                { gloss: { contains: query, mode: "insensitive" } },
-              ],
+      include: {
+        language: true,
+        senses: true,
+        outgoingTranslations: {
+          include: {
+            targetLexeme: {
+              include: {
+                language: true,
+                senses: true,
+              },
             },
           },
         },
-      ],
-    },
-    take: Math.min(Math.max(limit, 1), 100),
-    orderBy: {
-      lemma: "asc",
-    },
-    include: {
-      language: true,
-      senses: true,
-      outgoingTranslations: {
-        include: {
-          targetLexeme: {
-            include: {
-              language: true,
-              senses: true,
+        incomingTranslations: {
+          include: {
+            sourceLexeme: {
+              include: {
+                language: true,
+                senses: true,
+              },
             },
           },
         },
       },
-      incomingTranslations: {
-        include: {
-          sourceLexeme: {
-            include: {
-              language: true,
-              senses: true,
-            },
-          },
-        },
-      },
-    },
-  });
+    }),
+    prisma.lexeme.count({ where }),
+  ]);
 
   return {
     query,
     language: languageCode,
-    count: entries.length,
+    total,
     items: entries,
   };
 };
@@ -124,7 +130,9 @@ export const getTextAnalysis = async (id: string) => {
 
 export const exportDataset = async (
   datasetId: string,
-  split?: string
+  split: string | undefined,
+  skip = 0,
+  take = 25
 ) => {
   const dataset = await prisma.dataset.findUnique({
     where: { id: datasetId },
@@ -137,12 +145,15 @@ export const exportDataset = async (
     ...(split ? { split } : {}),
   };
 
-  const items = await prisma.datasetItem.findMany({
-    where,
-    orderBy: {
-      createdAt: "asc",
-    },
-    include: {
+  const [items, total] = await prisma.$transaction([
+    prisma.datasetItem.findMany({
+      where,
+      skip,
+      take,
+      orderBy: {
+        createdAt: "asc",
+      },
+      include: {
       translation: {
         include: {
           sourceText: {
@@ -173,8 +184,9 @@ export const exportDataset = async (
           },
         },
       },
-    },
-  });
+    }),
+    prisma.datasetItem.count({ where }),
+  ]);
 
   return {
     dataset: {
@@ -185,7 +197,8 @@ export const exportDataset = async (
       license: dataset.license,
     },
     split: split ?? "all",
-    count: items.length,
+    count: total,
+    total,
     items: items.map((item) => ({
       id: item.id,
       split: item.split,
