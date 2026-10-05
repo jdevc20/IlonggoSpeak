@@ -1,12 +1,14 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { AppNav } from "@/components/AppNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { SentenceService } from "@/services/sentenceService";
 import type { Sentence } from "@/types/sentence";
+import { getMaintenanceOptions, groupMaintenanceOptions } from "@/lib/maintenance";
+import type { MaintenanceOption } from "@/types/maintenance";
 
 export default function TranslationDetailPage() {
   const params = useParams();
@@ -28,6 +30,11 @@ export default function TranslationDetailPage() {
   const [confidence, setConfidence] = useState("");
   const [notes, setNotes] = useState("");
   const [isSarcastic, setIsSarcastic] = useState(false);
+  const [languagePair, setLanguagePair] = useState("en-hil");
+  const [unitType, setUnitType] = useState("sentence");
+  const [maintenance, setMaintenance] = useState<MaintenanceOption[]>([]);
+  const grouped = useMemo(() => groupMaintenanceOptions(maintenance), [maintenance]);
+  const options = (category: string) => grouped[category] ?? [];
 
   const hydrate = (data: Sentence) => {
     setEnglish(data.english);
@@ -40,6 +47,8 @@ export default function TranslationDetailPage() {
     setConfidence(data.confidence === null ? "" : String(data.confidence));
     setNotes(data.notes ?? "");
     setIsSarcastic(data.isSarcastic);
+    setLanguagePair(data.languagePair || "en-hil");
+    setUnitType(data.unitType || "sentence");
   };
 
   const load = async () => {
@@ -47,7 +56,11 @@ export default function TranslationDetailPage() {
     try {
       setLoading(true);
       setError(null);
-      const data = await SentenceService.get(id);
+      const [data, metadata] = await Promise.all([
+        SentenceService.get(id),
+        getMaintenanceOptions(),
+      ]);
+      setMaintenance(metadata.items);
       setSentence(data);
       hydrate(data);
     } catch {
@@ -115,7 +128,9 @@ export default function TranslationDetailPage() {
         intent: intent.trim() || null,
         domain: domain.trim() || null,
         register: register.trim() || null,
-        translationType: translationType.trim() || "natural",
+        translationType: translationType || "natural",
+        languagePair,
+        unitType,
         confidence: parsedConfidence,
         notes: notes.trim() || null,
         isSarcastic,
@@ -273,37 +288,48 @@ export default function TranslationDetailPage() {
             </div>
 
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-              <label className="text-sm font-semibold">
-                Sentiment
-                <select disabled={!canEdit} value={sentiment} onChange={(e) => setSentiment(Number(e.target.value))} className={inputClass}>
-                  <option value={0}>Negative</option>
-                  <option value={1}>Neutral</option>
-                  <option value={2}>Positive</option>
+              <label className="text-sm font-semibold">Intent
+                <select disabled={!canEdit} value={intent} onChange={(e) => setIntent(e.target.value)} className={inputClass}>
+                  {options("intent").map((item) => <option key={item.id} value={item.value}>{item.label}</option>)}
                 </select>
               </label>
-              <label className="text-sm font-semibold">
-                Translation type
-                <input disabled={!canEdit} value={translationType} onChange={(e) => setTranslationType(e.target.value)} className={inputClass} />
+              <label className="text-sm font-semibold">Sentiment
+                <select disabled={!canEdit} value={sentiment} onChange={(e) => setSentiment(Number(e.target.value))} className={inputClass}>
+                  {options("sentiment").map((item) => <option key={item.id} value={item.value}>{item.label}</option>)}
+                </select>
               </label>
-              <label className="text-sm font-semibold">
-                Intent
-                <input disabled={!canEdit} value={intent} onChange={(e) => setIntent(e.target.value)} className={inputClass} />
+              <label className="text-sm font-semibold">Register
+                <select disabled={!canEdit} value={register} onChange={(e) => setRegister(e.target.value)} className={inputClass}>
+                  {options("register").map((item) => <option key={item.id} value={item.value}>{item.label}</option>)}
+                </select>
               </label>
-              <label className="text-sm font-semibold">
-                Domain
-                <input disabled={!canEdit} value={domain} onChange={(e) => setDomain(e.target.value)} className={inputClass} />
+              <label className="text-sm font-semibold">Domain
+                <select disabled={!canEdit} value={domain} onChange={(e) => setDomain(e.target.value)} className={inputClass}>
+                  {options("domain").map((item) => <option key={item.id} value={item.value}>{item.label}</option>)}
+                </select>
               </label>
-              <label className="text-sm font-semibold">
-                Register
-                <input disabled={!canEdit} value={register} onChange={(e) => setRegister(e.target.value)} className={inputClass} />
+              <label className="text-sm font-semibold">Sarcasm
+                <select disabled={!canEdit} value={String(isSarcastic)} onChange={(e) => setIsSarcastic(e.target.value === "true")} className={inputClass}>
+                  {options("sarcasm").map((item) => <option key={item.id} value={item.value}>{item.label}</option>)}
+                </select>
               </label>
-              <label className="text-sm font-semibold">
-                Confidence
+              <label className="text-sm font-semibold">Translation type
+                <select disabled={!canEdit} value={translationType} onChange={(e) => setTranslationType(e.target.value)} className={inputClass}>
+                  {options("translation_type").map((item) => <option key={item.id} value={item.value}>{item.label}</option>)}
+                </select>
+              </label>
+              <label className="text-sm font-semibold">Language pair
+                <select disabled={!canEdit} value={languagePair} onChange={(e) => setLanguagePair(e.target.value)} className={inputClass}>
+                  {options("language_pair").map((item) => <option key={item.id} value={item.value}>{item.label}</option>)}
+                </select>
+              </label>
+              <label className="text-sm font-semibold">Unit type
+                <select disabled={!canEdit} value={unitType} onChange={(e) => setUnitType(e.target.value)} className={inputClass}>
+                  {options("unit_type").map((item) => <option key={item.id} value={item.value}>{item.label}</option>)}
+                </select>
+              </label>
+              <label className="text-sm font-semibold">Confidence
                 <input disabled={!canEdit} type="number" min="0" max="1" step="0.01" value={confidence} onChange={(e) => setConfidence(e.target.value)} className={inputClass} />
-              </label>
-              <label className="flex items-center gap-3 self-end rounded-xl border border-zinc-200 px-4 py-3 text-sm font-semibold dark:border-zinc-700">
-                <input disabled={!canEdit} type="checkbox" checked={isSarcastic} onChange={(e) => setIsSarcastic(e.target.checked)} />
-                Sarcastic
               </label>
             </div>
 
