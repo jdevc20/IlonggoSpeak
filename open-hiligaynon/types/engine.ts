@@ -1,4 +1,5 @@
 import type { LexemeSense } from "./sentence";
+import type { PaginationMeta } from "./pagination";
 
 export interface DictionaryLanguage {
   id: string;
@@ -45,8 +46,8 @@ export interface DictionaryLexeme {
 export interface DictionarySearchResponse {
   query: string;
   language: string;
-  count: number;
   items: DictionaryLexeme[];
+  meta: PaginationMeta;
 }
 
 
@@ -90,6 +91,7 @@ export interface DatasetExportResponse {
   split: string;
   count: number;
   items: DatasetExportItem[];
+  meta: PaginationMeta;
 }
 
 
