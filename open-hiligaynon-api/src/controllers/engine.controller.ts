@@ -1,16 +1,14 @@
 import { Request, Response } from "express";
 import type { TeamRequest } from "../middleware/team-auth.middleware.js";
 import * as engineService from "../services/engine.service.js";
+import { buildPaginationMeta, parsePagination } from "../utils/pagination.js";
 
 export const dictionaryLookup = async (req: Request, res: Response) => {
   try {
     const query = typeof req.query.q === "string" ? req.query.q.trim() : "";
     const language =
       typeof req.query.language === "string" ? req.query.language.trim() : "hil";
-    const limit =
-      typeof req.query.limit === "string"
-        ? Number.parseInt(req.query.limit, 10)
-        : 25;
+    const pagination = parsePagination(req.query.page, req.query.limit, 20, 100);
 
     if (!query) {
       return res.status(400).json({
@@ -19,13 +17,26 @@ export const dictionaryLookup = async (req: Request, res: Response) => {
       });
     }
 
+    if (!pagination) {
+      return res.status(400).json({
+        error: "Invalid pagination parameter",
+        details: "'page' must be positive and 'limit' must be between 1 and 100.",
+      });
+    }
+
     const result = await engineService.searchDictionary(
       query,
       language || "hil",
-      Number.isNaN(limit) ? 25 : limit
+      pagination.skip,
+      pagination.limit
     );
 
-    return res.status(200).json(result);
+    return res.status(200).json({
+      query: result.query,
+      language: result.language,
+      items: result.items,
+      meta: buildPaginationMeta(result.total, pagination.page, pagination.limit),
+    });
   } catch (error: any) {
     console.error("[dictionaryLookup Error]:", error);
     return res.status(500).json({
@@ -68,6 +79,7 @@ export const datasetExport = async (req: Request, res: Response) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const split = typeof req.query.split === "string" ? req.query.split : undefined;
+    const pagination = parsePagination(req.query.page, req.query.limit, 20, 100);
 
     if (!id) {
       return res.status(400).json({
@@ -76,7 +88,19 @@ export const datasetExport = async (req: Request, res: Response) => {
       });
     }
 
-    const data = await engineService.exportDataset(id, split);
+    if (!pagination) {
+      return res.status(400).json({
+        error: "Invalid pagination parameter",
+        details: "'page' must be positive and 'limit' must be between 1 and 100.",
+      });
+    }
+
+    const data = await engineService.exportDataset(
+      id,
+      split,
+      pagination.skip,
+      pagination.limit
+    );
 
     if (!data) {
       return res.status(404).json({
@@ -85,7 +109,10 @@ export const datasetExport = async (req: Request, res: Response) => {
       });
     }
 
-    return res.status(200).json(data);
+    return res.status(200).json({
+      ...data,
+      meta: buildPaginationMeta(data.total, pagination.page, pagination.limit),
+    });
   } catch (error: any) {
     console.error("[datasetExport Error]:", error);
     return res.status(500).json({
