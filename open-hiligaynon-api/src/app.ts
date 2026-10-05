@@ -4,6 +4,7 @@ import cors from "cors";
 import authRoutes from "./routes/auth.routes.js";
 import sentenceRoutes from "./routes/sentence.routes.js";
 import engineRoutes from "./routes/engine.routes.js";
+import maintenanceRoutes from "./routes/maintenance.routes.js";
 
 const app = express();
 
@@ -31,6 +32,7 @@ app.use(express.json({ limit: "1mb" }));
 app.use("/api/auth", authRoutes);
 app.use("/api/sentences", sentenceRoutes);
 app.use("/api/engine", engineRoutes);
+app.use("/api/maintenance", maintenanceRoutes);
 
 app.get("/health", (_req, res) => {
   res.status(200).json({
