@@ -22,6 +22,7 @@ const links: WorkspaceLink[] = [
   { href: "/model-evaluation", label: "Model Evaluation", roles: ["REVIEWER", "ADMIN"] },
   { href: "/model-versions", label: "Model Versions", roles: ["REVIEWER", "ADMIN"] },
   { href: "/team", label: "Team", roles: ["ADMIN"] },
+  { href: "/maintenance", label: "Maintenance", roles: ["ADMIN"] },
   { href: "/settings", label: "Settings" },
 ];
 
